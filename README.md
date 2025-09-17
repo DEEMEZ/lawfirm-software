@@ -1,36 +1,124 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Law Firm SaaS Platform
 
-## Getting Started
+A comprehensive multi-tenant law firm management system built with Next.js, TypeScript, and PostgreSQL.
 
-First, run the development server:
+## Architecture
+
+- **Frontend**: Next.js 15 with TypeScript and Tailwind CSS
+- **Backend**: Next.js API routes
+- **Database**: PostgreSQL with Prisma ORM
+- **Authentication**: NextAuth.js with JWT
+- **Multi-tenancy**: Row Level Security (RLS) with tenant isolation
+
+## Prerequisites
+
+- Node.js 18+
+- PostgreSQL 14+
+- npm or pnpm
+
+## Setup Instructions
+
+### 1. Clone and Install Dependencies
+
+```bash
+git clone <repo-url>
+cd lawfirm-software
+npm install
+```
+
+### 2. Environment Configuration
+
+```bash
+# Copy the example environment file
+cp .env.example .env
+
+# Edit .env with your actual values:
+# DATABASE_URL="postgresql://username:password@localhost:5432/lawfirm_db"
+# JWT_SECRET="your-super-secret-jwt-key"
+# NEXTAUTH_SECRET="your-nextauth-secret"
+# NEXTAUTH_URL="http://localhost:3000"
+```
+
+### 3. Database Setup
+
+```bash
+# Create the database
+createdb lawfirm_db
+
+# Run Prisma migrations
+npx prisma migrate dev
+
+# Generate Prisma client
+npx prisma generate
+
+# (Optional) Seed initial data
+npm run seed
+```
+
+### 4. Development Server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to view the application.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run start` - Start production server
+- `npm run lint` - Run ESLint
+- `npm run type-check` - Run TypeScript compiler check
+- `npx prisma studio` - Open Prisma database browser
+- `npx prisma migrate dev` - Create and apply new migration
 
-## Learn More
+## Multi-Tenant Architecture
 
-To learn more about Next.js, take a look at the following resources:
+This system uses PostgreSQL Row Level Security (RLS) to ensure complete tenant isolation:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- Each law firm is a separate tenant
+- All data access is automatically filtered by `law_firm_id`
+- Cross-tenant data access is impossible at the database level
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Authentication & Authorization
 
-## Deploy on Vercel
+- NextAuth.js handles authentication
+- JWT tokens contain `user_id`, `role`, and `law_firm_id` claims
+- Role-based access control (RBAC) for different user types
+- Automatic tenant context setting for all database operations
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Project Structure
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+src/
+├── app/                 # Next.js app router
+│   ├── api/            # API routes
+│   ├── auth/           # Authentication pages
+│   └── dashboard/      # Protected dashboard pages
+├── lib/                # Shared utilities
+│   ├── auth.ts         # Authentication helpers
+│   ├── db.ts           # Database client with tenant context
+│   └── env.ts          # Environment validation
+├── generated/          # Prisma generated client
+└── middleware.ts       # Request middleware
+```
+
+## Database Schema
+
+Key tables:
+
+- `platform_users` - Global user accounts
+- `law_firms` - Tenant organizations
+- `users` - Firm-specific user profiles
+- `roles` - Permission definitions
+- `user_roles` - User-role assignments
+
+All tenant-scoped tables include `law_firm_id` for RLS policies.
+
+## Development Notes
+
+- TypeScript strict mode enabled
+- ESLint + Prettier configured
+- Pre-commit hooks ensure code quality
+- All environment variables validated at startup
