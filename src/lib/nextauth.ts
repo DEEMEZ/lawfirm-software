@@ -49,6 +49,19 @@ export const authOptions: NextAuthOptions = {
             return null
           }
 
+          // Check if this is a super admin (platform user without law firm users)
+          if (platformUser.users.length === 0) {
+            return {
+              id: platformUser.id,
+              email: platformUser.email,
+              name: platformUser.name || undefined,
+              platformUserId: platformUser.id,
+              lawFirmId: '',
+              lawFirmName: 'Platform Administration',
+              role: 'super_admin',
+            } as any
+          }
+
           // Get the user's primary law firm (first active one)
           const primaryUser = platformUser.users.find(
             user => user.lawFirm.isActive && user.isActive
@@ -64,14 +77,19 @@ export const authOptions: NextAuthOptions = {
           return {
             id: primaryUser.id,
             email: platformUser.email,
-            name: platformUser.name,
+            name: platformUser.name || undefined,
             platformUserId: platformUser.id,
             lawFirmId: primaryUser.lawFirmId,
             lawFirmName: primaryUser.lawFirm.name,
             role: primaryRole,
-          }
+          } as any
         } catch (error) {
-          console.error('Auth error:', error)
+          console.error('❌ Auth error:', error)
+          console.error('❌ Error details:', {
+            name: error.name,
+            message: error.message,
+            stack: error.stack
+          })
           return null
         }
       },
@@ -91,7 +109,8 @@ export const authOptions: NextAuthOptions = {
       return token
     },
     async session({ session, token }) {
-      return {
+      console.log('Session callback - token:', token)
+      const newSession = {
         ...session,
         user: {
           ...session.user,
@@ -102,11 +121,12 @@ export const authOptions: NextAuthOptions = {
           role: token.role,
         },
       }
+      console.log('Session callback - returning session:', newSession)
+      return newSession
     },
   },
   secret: env.NEXTAUTH_SECRET,
   pages: {
     signIn: '/auth/login',
-    signUp: '/auth/signup',
   },
 }

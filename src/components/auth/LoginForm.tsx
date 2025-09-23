@@ -25,7 +25,18 @@ export default function LoginForm() {
       })
 
       if (result?.ok) {
-        router.push('/')
+        // Get user session to determine redirect
+        const response = await fetch('/api/auth/me')
+        if (response.ok) {
+          const userData = await response.json()
+          if (userData.role === 'super_admin') {
+            router.push('/admin')
+          } else {
+            router.push('/dashboard')
+          }
+        } else {
+          router.push('/')
+        }
       } else {
         setError('Invalid credentials')
       }

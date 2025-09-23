@@ -29,6 +29,7 @@ export function generateToken(payload: {
   platformUserId: string
   lawFirmId: string
   role: string
+  [key: string]: any // Allow additional properties for impersonation, etc.
 }): string {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' })
 }

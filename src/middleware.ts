@@ -8,8 +8,10 @@ export function middleware(request: NextRequest) {
   const isAuthPage = pathname.startsWith('/auth')
   const isApiAuthRoute = pathname.startsWith('/api/auth')
   const isTestRoute = pathname.startsWith('/api/test')
+  const isAdminRoute = pathname.startsWith('/admin') || pathname.startsWith('/api/admin')
 
-  if (isAuthPage || isApiAuthRoute || isTestRoute) {
+  // Skip middleware for auth, test, and admin routes (admin routes use NextAuth session)
+  if (isAuthPage || isApiAuthRoute || isTestRoute || isAdminRoute) {
     return NextResponse.next()
   }
 

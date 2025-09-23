@@ -48,12 +48,12 @@ export class TenantAwarePrisma extends PrismaClient {
 
     // Intercept all model operations
     Object.keys(client).forEach(modelName => {
-      const model = (client as Record<string, unknown>)[modelName]
+      const model = (client as any)[modelName]
       if (model && typeof model === 'object') {
         originalMethods.forEach(method => {
-          if (typeof model[method] === 'function') {
-            const originalMethod = model[method].bind(model)
-            model[method] = async (...args: unknown[]) => {
+          if (typeof (model as any)[method] === 'function') {
+            const originalMethod = (model as any)[method].bind(model);
+            (model as any)[method] = async (...args: unknown[]) => {
               await client.setTenantContext(lawFirmId, userRole)
               try {
                 return await originalMethod(...args)
