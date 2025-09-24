@@ -8,7 +8,7 @@ import { PERMISSIONS } from '@/lib/rbac'
 import { requirePermission } from '@/lib/rbac'
 
 interface RouteParams {
-  params: { key: string }
+  params: Promise<{ key: string }>
 }
 
 // GET /api/documents/download/[key] - Generate presigned download URL
@@ -23,7 +23,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       const fileName = searchParams.get('fileName')
 
       // Decode the key (it might be URL encoded)
-      const key = decodeURIComponent(params.key)
+      const { key: rawKey } = await params
+      const key = decodeURIComponent(rawKey)
 
       // Validate key format (should start with law firm ID)
       if (!key.startsWith(userContext.lawFirmId)) {
@@ -38,24 +39,24 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         key,
         lawFirmId: userContext.lawFirmId,
         expiresIn: 3600, // 1 hour
-        responseContentDisposition: download && fileName
-          ? `attachment; filename="${fileName}"`
-          : undefined
+        responseContentDisposition:
+          download && fileName
+            ? `attachment; filename="${fileName}"`
+            : undefined,
       })
 
       return NextResponse.json({
         message: 'Download URL generated successfully',
         download: {
           downloadUrl: downloadResult.downloadUrl,
-          expiresAt: downloadResult.expiresAt.toISOString()
+          expiresAt: downloadResult.expiresAt.toISOString(),
         },
         metadata: downloadResult.metadata,
         instructions: {
           method: 'GET',
-          note: 'Use the downloadUrl to download the file. URL expires in 1 hour.'
-        }
+          note: 'Use the downloadUrl to download the file. URL expires in 1 hour.',
+        },
       })
-
     } catch (error) {
       console.error('Error generating download URL:', error)
 

@@ -15,7 +15,7 @@ export async function GET() {
     }
 
     // Check if user is super admin
-    const user = session.user as any
+    const user = session.user as { role?: string }
     if (user.role !== 'super_admin') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
@@ -29,19 +29,19 @@ export async function GET() {
       activeUsers,
       totalCases,
       totalDocuments,
-      recentSignups
+      recentSignups,
     ] = await Promise.all([
       // Total law firms
       prisma.lawFirm.count(),
 
       // Active law firms
       prisma.lawFirm.count({
-        where: { isActive: true }
+        where: { isActive: true },
       }),
 
       // Suspended law firms
       prisma.lawFirm.count({
-        where: { isActive: false }
+        where: { isActive: false },
       }),
 
       // Total users
@@ -49,7 +49,7 @@ export async function GET() {
 
       // Active users
       prisma.user.count({
-        where: { isActive: true }
+        where: { isActive: true },
       }),
 
       // Total cases (placeholder - will be implemented when cases are added)
@@ -62,17 +62,17 @@ export async function GET() {
       prisma.lawFirm.count({
         where: {
           createdAt: {
-            gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-          }
-        }
-      })
+            gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+          },
+        },
+      }),
     ])
 
     // Mock storage usage for now
     const storageUsage = {
       used: 1024 * 1024 * 1024 * 2.5, // 2.5 GB
       total: 1024 * 1024 * 1024 * 100, // 100 GB
-      percentage: 2.5
+      percentage: 2.5,
     }
 
     const stats = {
@@ -84,11 +84,10 @@ export async function GET() {
       totalCases,
       totalDocuments,
       recentSignups,
-      storageUsage
+      storageUsage,
     }
 
     return NextResponse.json(stats)
-
   } catch (error) {
     console.error('Error fetching dashboard stats:', error)
     return NextResponse.json(

@@ -32,14 +32,16 @@ interface ResendClient {
 let ResendClass: new (apiKey: string) => ResendClient
 
 try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  ResendClass = require('resend').Resend as new (apiKey: string) => ResendClient
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const resendModule = require('resend')
+  ResendClass = resendModule.Resend
 } catch {
   console.warn('Resend not available - email functionality disabled')
   // Mock implementation for when Resend is not available
   ResendClass = class MockResend implements ResendClient {
     emails = {
-      send: (): Promise<ResendResponse> => Promise.resolve({ data: { id: 'mock' } })
+      send: (): Promise<ResendResponse> =>
+        Promise.resolve({ data: { id: 'mock' } }),
     }
   }
 }
@@ -81,12 +83,15 @@ export interface EmailResult {
 }
 
 // Template variable types for better type safety
-export type TemplateVariables = Record<string, string | number | boolean | null | undefined>
+export type TemplateVariables = Record<
+  string,
+  string | number | boolean | null | undefined
+>
 
 // Default sender configuration
 const DEFAULT_FROM = {
   email: env.FROM_EMAIL || 'noreply@example.com',
-  name: env.FROM_NAME || 'Law Firm Platform'
+  name: env.FROM_NAME || 'Law Firm Platform',
 }
 
 // Email service class
@@ -115,18 +120,36 @@ export class EmailService {
 
       // Prepare email data
       const emailData: ResendEmailData = {
-        from: options.from ? `${options.from.name} <${options.from.email}>` : `${DEFAULT_FROM.name} <${DEFAULT_FROM.email}>`,
+        from: options.from
+          ? `${options.from.name} <${options.from.email}>`
+          : `${DEFAULT_FROM.name} <${DEFAULT_FROM.email}>`,
         to: Array.isArray(options.to)
-          ? options.to.map(addr => addr.name ? `${addr.name} <${addr.email}>` : addr.email)
-          : [options.to.name ? `${options.to.name} <${options.to.email}>` : options.to.email],
+          ? options.to.map(addr =>
+              addr.name ? `${addr.name} <${addr.email}>` : addr.email
+            )
+          : [
+              options.to.name
+                ? `${options.to.name} <${options.to.email}>`
+                : options.to.email,
+            ],
         subject: options.subject,
         html: options.html,
         text: options.text,
-        reply_to: options.replyTo ? [options.replyTo.name ? `${options.replyTo.name} <${options.replyTo.email}>` : options.replyTo.email] : undefined,
-        cc: options.cc?.map(addr => addr.name ? `${addr.name} <${addr.email}>` : addr.email),
-        bcc: options.bcc?.map(addr => addr.name ? `${addr.name} <${addr.email}>` : addr.email),
+        reply_to: options.replyTo
+          ? [
+              options.replyTo.name
+                ? `${options.replyTo.name} <${options.replyTo.email}>`
+                : options.replyTo.email,
+            ]
+          : undefined,
+        cc: options.cc?.map(addr =>
+          addr.name ? `${addr.name} <${addr.email}>` : addr.email
+        ),
+        bcc: options.bcc?.map(addr =>
+          addr.name ? `${addr.name} <${addr.email}>` : addr.email
+        ),
         tags: options.tags,
-        headers: options.headers
+        headers: options.headers,
       }
 
       // Send email via Resend
@@ -141,16 +164,15 @@ export class EmailService {
 
       return {
         id: response.data?.id || 'unknown',
-        success: true
+        success: true,
       }
-
     } catch (error) {
       console.error('Email send failed:', error)
 
       return {
         id: 'failed',
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       }
     }
   }
@@ -170,20 +192,23 @@ export class EmailService {
         subject: template.subject,
         html: template.html,
         text: template.text,
-        ...options
+        ...options,
       })
     } catch (error) {
       console.error(`Template email failed for ${templateName}:`, error)
       return {
         id: 'failed',
         success: false,
-        error: error instanceof Error ? error.message : 'Template error'
+        error: error instanceof Error ? error.message : 'Template error',
       }
     }
   }
 
   // Get email template with variable substitution
-  private async getTemplate(templateName: string, variables: TemplateVariables): Promise<EmailTemplate> {
+  private async getTemplate(
+    templateName: string,
+    variables: TemplateVariables
+  ): Promise<EmailTemplate> {
     const templates = getEmailTemplates()
     const template = templates[templateName]
 
@@ -194,13 +219,18 @@ export class EmailService {
     // Simple variable substitution
     const subject = this.replaceVariables(template.subject, variables)
     const html = this.replaceVariables(template.html, variables)
-    const text = template.text ? this.replaceVariables(template.text, variables) : undefined
+    const text = template.text
+      ? this.replaceVariables(template.text, variables)
+      : undefined
 
     return { subject, html, text }
   }
 
   // Simple variable replacement
-  private replaceVariables(content: string, variables: TemplateVariables): string {
+  private replaceVariables(
+    content: string,
+    variables: TemplateVariables
+  ): string {
     let result = content
     Object.entries(variables).forEach(([key, value]) => {
       const placeholder = `{{${key}}}`
@@ -216,17 +246,18 @@ export class EmailService {
         to: { email: 'test@example.com', name: 'Test User' },
         subject: 'Test Email Configuration',
         html: '<p>This is a test email to verify the email configuration.</p>',
-        text: 'This is a test email to verify the email configuration.'
+        text: 'This is a test email to verify the email configuration.',
       })
 
       return {
         success: testResult.success,
-        error: testResult.error
+        error: testResult.error,
       }
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Configuration test failed'
+        error:
+          error instanceof Error ? error.message : 'Configuration test failed',
       }
     }
   }
@@ -271,7 +302,7 @@ Login URL: {{loginUrl}}
 
 If you have any questions, please contact your administrator.
 
-This email was sent from {{firmName}} Law Management Platform.`
+This email was sent from {{firmName}} Law Management Platform.`,
     },
 
     court_reminder: {
@@ -314,7 +345,7 @@ Case URL: {{caseUrl}}
 
 Please ensure you are prepared for this hearing.
 
-This reminder was sent from {{firmName}} Law Management Platform.`
+This reminder was sent from {{firmName}} Law Management Platform.`,
     },
 
     password_reset: {
@@ -347,7 +378,7 @@ This link will expire in 1 hour for security reasons.
 
 If you didn't request this password reset, please ignore this email.
 
-This email was sent from {{firmName}} Law Management Platform.`
+This email was sent from {{firmName}} Law Management Platform.`,
     },
 
     task_assignment: {
@@ -387,8 +418,8 @@ Assigned by: {{assignerName}}
 
 Task URL: {{taskUrl}}
 
-This notification was sent from {{firmName}} Law Management Platform.`
-    }
+This notification was sent from {{firmName}} Law Management Platform.`,
+    },
   }
 }
 

@@ -9,7 +9,9 @@ const envSchema = z.object({
   NEXTAUTH_SECRET: z.string().min(1, 'NEXTAUTH_SECRET is required'),
   NEXTAUTH_URL: z.string().url().default('http://localhost:3000'),
   // Email configuration
-  RESEND_API_KEY: z.string().min(1, 'RESEND_API_KEY is required for email functionality'),
+  RESEND_API_KEY: z
+    .string()
+    .min(1, 'RESEND_API_KEY is required for email functionality'),
   FROM_EMAIL: z.string().email().default('noreply@lawfirm.example.com'),
   FROM_NAME: z.string().default('Law Firm Platform'),
 
@@ -29,13 +31,17 @@ function validateEnv() {
 
       const missingVars = issues
         .filter(
-          err => err.code === 'invalid_type' && (err as any).received === 'undefined'
+          err =>
+            err.code === 'invalid_type' &&
+            (err as { received?: string }).received === 'undefined'
         )
         .map(err => err.path.join('.'))
 
       const invalidVars = issues
         .filter(
-          err => err.code !== 'invalid_type' || (err as any).received !== 'undefined'
+          err =>
+            err.code !== 'invalid_type' ||
+            (err as { received?: string }).received !== 'undefined'
         )
         .map(err => `${err.path.join('.')}: ${err.message}`)
 

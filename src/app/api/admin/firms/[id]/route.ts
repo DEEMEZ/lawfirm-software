@@ -7,53 +7,54 @@ import { withRole } from '@/lib/auth-guards'
 import { ROLES } from '@/lib/rbac'
 
 interface RouteParams {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }
 
 // GET /api/admin/firms/[id] - Get specific law firm details
 export async function GET(request: NextRequest, { params }: RouteParams) {
   return withRole(ROLES.SUPER_ADMIN, async () => {
     try {
+      const { id } = await params
       const firm = await prisma.lawFirm.findUnique({
-        where: { id: params.id },
+        where: { id },
         include: {
           users: {
             include: {
               platformUser: {
                 select: {
                   email: true,
-                  name: true
-                }
+                  name: true,
+                },
               },
               userRoles: {
                 include: {
                   role: {
                     select: {
-                      name: true
-                    }
-                  }
-                }
-              }
-            }
+                      name: true,
+                    },
+                  },
+                },
+              },
+            },
           },
           cases: {
             select: {
               id: true,
               title: true,
               status: true,
-              createdAt: true
+              createdAt: true,
             },
             orderBy: { createdAt: 'desc' },
-            take: 10
+            take: 10,
           },
           _count: {
             select: {
               users: true,
               cases: true,
-              documents: true
-            }
-          }
-        }
+              documents: true,
+            },
+          },
+        },
       })
 
       if (!firm) {
@@ -64,13 +65,15 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       }
 
       // Transform user data
-      const users = firm.users.map(user => ({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const users = firm.users.map((user: any) => ({
         id: user.id,
         email: user.platformUser.email,
         name: user.platformUser.name,
         isActive: user.isActive,
-        roles: user.userRoles.map(ur => ur.role.name),
-        joinedAt: user.joinedAt
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        roles: user.userRoles.map((ur: any) => ur.role.name),
+        joinedAt: user.joinedAt,
       }))
 
       return NextResponse.json({
@@ -88,10 +91,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         stats: {
           totalUsers: firm._count.users,
           totalCases: firm._count.cases,
-          totalDocuments: firm._count.documents
-        }
+          totalDocuments: firm._count.documents,
+        },
       })
-
     } catch (error) {
       console.error('Error fetching law firm:', error)
       return NextResponse.json(
@@ -106,10 +108,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   return withRole(ROLES.SUPER_ADMIN, async () => {
     try {
+      const { id } = await params
       const body = await request.json()
       const { name, domain, plan, isActive, settings } = body
 
       // Build update data
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const updateData: any = {}
       if (name !== undefined) updateData.name = name
       if (domain !== undefined) updateData.domain = domain
@@ -118,15 +122,14 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       if (settings !== undefined) updateData.settings = settings
 
       const firm = await prisma.lawFirm.update({
-        where: { id: params.id },
-        data: updateData
+        where: { id },
+        data: updateData,
       })
 
       return NextResponse.json({
         message: 'Law firm updated successfully',
-        lawFirm: firm
+        lawFirm: firm,
       })
-
     } catch (error) {
       console.error('Error updating law firm:', error)
       return NextResponse.json(
@@ -141,17 +144,17 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   return withRole(ROLES.SUPER_ADMIN, async () => {
     try {
+      const { id } = await params
       // Don't actually delete, just deactivate
       const firm = await prisma.lawFirm.update({
-        where: { id: params.id },
-        data: { isActive: false }
+        where: { id },
+        data: { isActive: false },
       })
 
       return NextResponse.json({
         message: 'Law firm suspended successfully',
-        lawFirm: firm
+        lawFirm: firm,
       })
-
     } catch (error) {
       console.error('Error suspending law firm:', error)
       return NextResponse.json(

@@ -4,7 +4,10 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/nextauth'
-import { getUserWithPermissions, getPlatformUserContext } from '@/lib/user-context'
+import {
+  getUserWithPermissions,
+  getPlatformUserContext,
+} from '@/lib/user-context'
 
 export async function GET() {
   try {
@@ -15,7 +18,8 @@ export async function GET() {
     }
 
     // Check if this is a platform user (super admin)
-    const platformUserId = (session.user as any).platformUserId
+    const platformUserId = (session.user as { platformUserId?: string })
+      .platformUserId
 
     if (platformUserId) {
       // Try to get platform user context first (for super admins)
@@ -29,12 +33,12 @@ export async function GET() {
           role: 'super_admin',
           lawFirmId: '',
           permissions: platformUserContext.permissions,
-          isPlatformUser: true
+          isPlatformUser: true,
         })
       }
 
       // If not a platform super admin, get regular user context
-      const lawFirmId = (session.user as any).lawFirmId
+      const lawFirmId = (session.user as { lawFirmId?: string }).lawFirmId
       const userId = session.user.id
 
       if (lawFirmId && userId) {
@@ -48,14 +52,16 @@ export async function GET() {
             role: userContext.role,
             lawFirmId: userContext.lawFirmId,
             permissions: userContext.permissions,
-            isPlatformUser: false
+            isPlatformUser: false,
           })
         }
       }
     }
 
-    return NextResponse.json({ error: 'User context not found' }, { status: 404 })
-
+    return NextResponse.json(
+      { error: 'User context not found' },
+      { status: 404 }
+    )
   } catch (error) {
     console.error('Error getting user context:', error)
     return NextResponse.json(

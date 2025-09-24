@@ -59,12 +59,21 @@ export const authOptions: NextAuthOptions = {
               lawFirmId: '',
               lawFirmName: 'Platform Administration',
               role: 'super_admin',
-            } as any
+            } as {
+              id: string
+              email: string
+              name?: string
+              platformUserId: string
+              lawFirmId: string
+              lawFirmName: string
+              role: string
+            }
           }
 
           // Get the user's primary law firm (first active one)
           const primaryUser = platformUser.users.find(
-            user => user.lawFirm.isActive && user.isActive
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (user: any) => user.lawFirm.isActive && user.isActive
           )
 
           if (!primaryUser) {
@@ -82,14 +91,24 @@ export const authOptions: NextAuthOptions = {
             lawFirmId: primaryUser.lawFirmId,
             lawFirmName: primaryUser.lawFirm.name,
             role: primaryRole,
-          } as any
+          } as {
+            id: string
+            email: string
+            name?: string
+            platformUserId: string
+            lawFirmId: string
+            lawFirmName: string
+            role: string
+          }
         } catch (error) {
           console.error('❌ Auth error:', error)
-          console.error('❌ Error details:', {
-            name: error.name,
-            message: error.message,
-            stack: error.stack
-          })
+          if (error instanceof Error) {
+            console.error('❌ Error details:', {
+              name: error.name,
+              message: error.message,
+              stack: error.stack,
+            })
+          }
           return null
         }
       },

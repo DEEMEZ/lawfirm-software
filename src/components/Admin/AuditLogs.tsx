@@ -3,7 +3,7 @@
 
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 
 interface AuditLog {
   id: string
@@ -15,7 +15,7 @@ interface AuditLog {
   law_firm_name?: string
   ip_address: string
   created_at: string
-  new_values?: any
+  new_values?: Record<string, unknown>
 }
 
 export default function AuditLogs() {
@@ -26,14 +26,10 @@ export default function AuditLogs() {
     entityType: '',
     lawFirmId: '',
     startDate: '',
-    endDate: ''
+    endDate: '',
   })
 
-  useEffect(() => {
-    fetchAuditLogs()
-  }, [filters])
-
-  const fetchAuditLogs = async () => {
+  const fetchAuditLogs = useCallback(async () => {
     try {
       const params = new URLSearchParams()
       Object.entries(filters).forEach(([key, value]) => {
@@ -41,7 +37,7 @@ export default function AuditLogs() {
       })
 
       const response = await fetch(`/api/admin/audit?${params}`, {
-        credentials: 'include'
+        credentials: 'include',
       })
       if (response.ok) {
         const data = await response.json()
@@ -52,7 +48,11 @@ export default function AuditLogs() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [filters])
+
+  useEffect(() => {
+    fetchAuditLogs()
+  }, [fetchAuditLogs])
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString()
@@ -60,12 +60,18 @@ export default function AuditLogs() {
 
   const getActionIcon = (action: string) => {
     switch (action) {
-      case 'IMPERSONATION_START': return '🔑'
-      case 'IMPERSONATION_END': return '🚪'
-      case 'INSERT': return '➕'
-      case 'UPDATE': return '✏️'
-      case 'DELETE': return '🗑️'
-      default: return '📝'
+      case 'IMPERSONATION_START':
+        return '🔑'
+      case 'IMPERSONATION_END':
+        return '🚪'
+      case 'INSERT':
+        return '➕'
+      case 'UPDATE':
+        return '✏️'
+      case 'DELETE':
+        return '🗑️'
+      default:
+        return '📝'
     }
   }
 
@@ -74,10 +80,14 @@ export default function AuditLogs() {
       case 'IMPERSONATION_START':
       case 'IMPERSONATION_END':
         return 'bg-yellow-100 text-yellow-800'
-      case 'INSERT': return 'bg-green-100 text-green-800'
-      case 'UPDATE': return 'bg-blue-100 text-blue-800'
-      case 'DELETE': return 'bg-red-100 text-red-800'
-      default: return 'bg-gray-100 text-gray-800'
+      case 'INSERT':
+        return 'bg-green-100 text-green-800'
+      case 'UPDATE':
+        return 'bg-blue-100 text-blue-800'
+      case 'DELETE':
+        return 'bg-red-100 text-red-800'
+      default:
+        return 'bg-gray-100 text-gray-800'
     }
   }
 
@@ -93,8 +103,12 @@ export default function AuditLogs() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Platform Audit Logs</h1>
-        <p className="text-gray-600">Monitor all platform administrative activities</p>
+        <h1 className="text-2xl font-bold text-gray-900">
+          Platform Audit Logs
+        </h1>
+        <p className="text-gray-600">
+          Monitor all platform administrative activities
+        </p>
       </div>
 
       {/* Filters */}
@@ -106,7 +120,9 @@ export default function AuditLogs() {
             </label>
             <select
               value={filters.action}
-              onChange={(e) => setFilters(prev => ({ ...prev, action: e.target.value }))}
+              onChange={e =>
+                setFilters(prev => ({ ...prev, action: e.target.value }))
+              }
               className="w-full px-3 py-2 border border-gray-300 rounded-lg"
             >
               <option value="">All Actions</option>
@@ -124,7 +140,9 @@ export default function AuditLogs() {
             </label>
             <select
               value={filters.entityType}
-              onChange={(e) => setFilters(prev => ({ ...prev, entityType: e.target.value }))}
+              onChange={e =>
+                setFilters(prev => ({ ...prev, entityType: e.target.value }))
+              }
               className="w-full px-3 py-2 border border-gray-300 rounded-lg"
             >
               <option value="">All Types</option>
@@ -142,7 +160,9 @@ export default function AuditLogs() {
             <input
               type="date"
               value={filters.startDate}
-              onChange={(e) => setFilters(prev => ({ ...prev, startDate: e.target.value }))}
+              onChange={e =>
+                setFilters(prev => ({ ...prev, startDate: e.target.value }))
+              }
               className="w-full px-3 py-2 border border-gray-300 rounded-lg"
             />
           </div>
@@ -154,20 +174,24 @@ export default function AuditLogs() {
             <input
               type="date"
               value={filters.endDate}
-              onChange={(e) => setFilters(prev => ({ ...prev, endDate: e.target.value }))}
+              onChange={e =>
+                setFilters(prev => ({ ...prev, endDate: e.target.value }))
+              }
               className="w-full px-3 py-2 border border-gray-300 rounded-lg"
             />
           </div>
 
           <div className="flex items-end">
             <button
-              onClick={() => setFilters({
-                action: '',
-                entityType: '',
-                lawFirmId: '',
-                startDate: '',
-                endDate: ''
-              })}
+              onClick={() =>
+                setFilters({
+                  action: '',
+                  entityType: '',
+                  lawFirmId: '',
+                  startDate: '',
+                  endDate: '',
+                })
+              }
               className="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 px-4 rounded-lg"
             >
               Clear Filters
@@ -184,14 +208,16 @@ export default function AuditLogs() {
           </div>
         ) : (
           <div className="divide-y divide-gray-200">
-            {auditLogs.map((log) => (
+            {auditLogs.map(log => (
               <div key={log.id} className="p-4 hover:bg-gray-50">
                 <div className="flex items-start justify-between">
                   <div className="flex items-start space-x-3">
                     <span className="text-xl">{getActionIcon(log.action)}</span>
                     <div>
                       <div className="flex items-center space-x-2">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getActionColor(log.action)}`}>
+                        <span
+                          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getActionColor(log.action)}`}
+                        >
                           {log.action}
                         </span>
                         <span className="text-sm text-gray-600">
@@ -204,19 +230,30 @@ export default function AuditLogs() {
                         )}
                       </div>
                       <div className="mt-1 text-sm text-gray-600">
-                        By <strong>{log.admin_name || 'Unknown'}</strong> ({log.admin_email || 'unknown@example.com'})
+                        By <strong>{log.admin_name || 'Unknown'}</strong> (
+                        {log.admin_email || 'unknown@example.com'})
                       </div>
                       <div className="mt-1 text-xs text-gray-500">
                         {formatDate(log.created_at)} • IP: {log.ip_address}
                       </div>
-                      {log.new_values && log.action.includes('IMPERSONATION') && (
-                        <div className="mt-2 p-2 bg-yellow-50 rounded text-xs">
-                          <strong>Reason:</strong> {log.new_values.reason}
-                          {log.new_values.ticketNumber && (
-                            <span> • Ticket: {log.new_values.ticketNumber}</span>
-                          )}
-                        </div>
-                      )}
+                      {log.new_values &&
+                        log.action.includes('IMPERSONATION') && (
+                          <div className="mt-2 p-2 bg-yellow-50 rounded text-xs">
+                            <strong>Reason:</strong>{' '}
+                            {(log.new_values as { reason?: string }).reason}
+                            {(log.new_values as { ticketNumber?: string })
+                              .ticketNumber && (
+                              <span>
+                                {' '}
+                                • Ticket:{' '}
+                                {
+                                  (log.new_values as { ticketNumber?: string })
+                                    .ticketNumber
+                                }
+                              </span>
+                            )}
+                          </div>
+                        )}
                     </div>
                   </div>
                 </div>

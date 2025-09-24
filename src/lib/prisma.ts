@@ -4,16 +4,17 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
-// Use direct connection for now to avoid connection string issues
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
     datasources: {
       db: {
-        url: 'postgresql://postgres:Ali.rayyan001@localhost:5432/lawfirm_db',
+        url:
+          process.env.DATABASE_URL ||
+          'postgresql://postgres:Ali.rayyan001@localhost:5432/lawfirm_db',
       },
     },
-    log: ['error'],
+    log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
   })
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma

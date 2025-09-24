@@ -1,7 +1,13 @@
 // Object Storage Service (R2/S3-compatible)
 // Purpose: Store documents with presigned URLs and tenant isolation
 
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3'
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectCommand,
+  HeadObjectCommand,
+} from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { env } from './env'
 
@@ -75,7 +81,7 @@ export class StorageService {
       secretAccessKey: env.R2_SECRET_ACCESS_KEY || '',
       endpoint: env.R2_ENDPOINT || '',
       region: 'auto', // R2 uses 'auto' region
-      bucket: env.R2_BUCKET_NAME || ''
+      bucket: env.R2_BUCKET_NAME || '',
     }
 
     this.bucket = config.bucket
@@ -85,9 +91,9 @@ export class StorageService {
       endpoint: config.endpoint,
       credentials: {
         accessKeyId: config.accessKeyId,
-        secretAccessKey: config.secretAccessKey
+        secretAccessKey: config.secretAccessKey,
       },
-      forcePathStyle: true // Required for R2
+      forcePathStyle: true, // Required for R2
     })
   }
 
@@ -102,7 +108,12 @@ export class StorageService {
   async generateUploadUrl(options: UploadOptions): Promise<UploadResult> {
     try {
       // Generate secure file key with tenant isolation
-      const key = this.generateFileKey(options.lawFirmId, options.folder, options.fileName, options.caseId)
+      const key = this.generateFileKey(
+        options.lawFirmId,
+        options.folder,
+        options.fileName,
+        options.caseId
+      )
 
       // Create metadata
       const metadata: FileMetadata = {
@@ -113,7 +124,7 @@ export class StorageService {
         uploadedBy: options.uploadedBy,
         fileName: options.fileName,
         fileSize: options.fileSize,
-        mimeType: options.mimeType
+        mimeType: options.mimeType,
       }
 
       // Create presigned PUT URL
@@ -127,20 +138,21 @@ export class StorageService {
           uploadedBy: options.uploadedBy,
           fileName: options.fileName,
           ...(options.caseId && { caseId: options.caseId }),
-          ...(options.clientId && { clientId: options.clientId })
-        }
+          ...(options.clientId && { clientId: options.clientId }),
+        },
       })
 
       const expiresIn = options.expiresIn || 3600 // 1 hour default
-      const uploadUrl = await getSignedUrl(this.s3Client, command, { expiresIn })
+      const uploadUrl = await getSignedUrl(this.s3Client, command, {
+        expiresIn,
+      })
 
       return {
         key,
         uploadUrl,
         metadata,
-        expiresAt: new Date(Date.now() + expiresIn * 1000)
+        expiresAt: new Date(Date.now() + expiresIn * 1000),
       }
-
     } catch (error) {
       console.error('Error generating upload URL:', error)
       throw new Error('Failed to generate upload URL')
@@ -160,18 +172,19 @@ export class StorageService {
       const command = new GetObjectCommand({
         Bucket: this.bucket,
         Key: options.key,
-        ResponseContentDisposition: options.responseContentDisposition
+        ResponseContentDisposition: options.responseContentDisposition,
       })
 
       const expiresIn = options.expiresIn || 3600 // 1 hour default
-      const downloadUrl = await getSignedUrl(this.s3Client, command, { expiresIn })
+      const downloadUrl = await getSignedUrl(this.s3Client, command, {
+        expiresIn,
+      })
 
       return {
         downloadUrl,
         metadata,
-        expiresAt: new Date(Date.now() + expiresIn * 1000)
+        expiresAt: new Date(Date.now() + expiresIn * 1000),
       }
-
     } catch (error) {
       console.error('Error generating download URL:', error)
       throw new Error('Failed to generate download URL')
@@ -187,12 +200,11 @@ export class StorageService {
       // Delete the file
       const command = new DeleteObjectCommand({
         Bucket: this.bucket,
-        Key: key
+        Key: key,
       })
 
       await this.s3Client.send(command)
       console.log(`File deleted successfully: ${key}`)
-
     } catch (error) {
       console.error('Error deleting file:', error)
       throw new Error('Failed to delete file')
@@ -204,7 +216,7 @@ export class StorageService {
     try {
       const command = new HeadObjectCommand({
         Bucket: this.bucket,
-        Key: key
+        Key: key,
       })
 
       const response = await this.s3Client.send(command)
@@ -217,9 +229,8 @@ export class StorageService {
         uploadedBy: response.Metadata?.uploadedby || '',
         fileName: response.Metadata?.filename || '',
         fileSize: response.ContentLength || 0,
-        mimeType: response.ContentType || 'application/octet-stream'
+        mimeType: response.ContentType || 'application/octet-stream',
       }
-
     } catch (error) {
       console.error('Error getting file metadata:', error)
       throw new Error('File not found or inaccessible')
@@ -227,14 +238,16 @@ export class StorageService {
   }
 
   // Verify file access (tenant isolation)
-  private async verifyFileAccess(key: string, lawFirmId: string): Promise<void> {
+  private async verifyFileAccess(
+    key: string,
+    lawFirmId: string
+  ): Promise<void> {
     try {
       const metadata = await this.getFileMetadata(key)
 
       if (metadata.lawFirmId !== lawFirmId) {
         throw new Error('Access denied: File belongs to different law firm')
       }
-
     } catch (error) {
       if (error instanceof Error && error.message.includes('Access denied')) {
         throw error
@@ -285,7 +298,8 @@ export class StorageService {
       if (!this.isConfigured()) {
         return {
           success: false,
-          error: 'Storage not configured. Missing required environment variables.'
+          error:
+            'Storage not configured. Missing required environment variables.',
         }
       }
 
@@ -293,25 +307,28 @@ export class StorageService {
       const testKey = `test/${Date.now()}_config_test.txt`
       const command = new HeadObjectCommand({
         Bucket: this.bucket,
-        Key: testKey
+        Key: testKey,
       })
 
       try {
         await this.s3Client.send(command)
-      } catch (error: any) {
+      } catch (error: unknown) {
         // If file doesn't exist, that's fine - it means we can connect
-        if (error.name === 'NotFound' || error.$metadata?.httpStatusCode === 404) {
+        if (
+          (error as { name?: string }).name === 'NotFound' ||
+          (error as { $metadata?: { httpStatusCode?: number } }).$metadata
+            ?.httpStatusCode === 404
+        ) {
           return { success: true }
         }
         throw error
       }
 
       return { success: true }
-
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       }
     }
   }
@@ -321,15 +338,22 @@ export class StorageService {
 export const storageService = StorageService.getInstance()
 
 // Quick functions for common operations
-export async function createUploadUrl(options: UploadOptions): Promise<UploadResult> {
+export async function createUploadUrl(
+  options: UploadOptions
+): Promise<UploadResult> {
   return storageService.generateUploadUrl(options)
 }
 
-export async function createDownloadUrl(options: DownloadOptions): Promise<DownloadResult> {
+export async function createDownloadUrl(
+  options: DownloadOptions
+): Promise<DownloadResult> {
   return storageService.generateDownloadUrl(options)
 }
 
-export async function deleteStorageFile(key: string, lawFirmId: string): Promise<void> {
+export async function deleteStorageFile(
+  key: string,
+  lawFirmId: string
+): Promise<void> {
   return storageService.deleteFile(key, lawFirmId)
 }
 
@@ -342,9 +366,7 @@ export class StoragePaths {
   }
 
   static users(lawFirmId: string, userId?: string): string {
-    return userId
-      ? `${lawFirmId}/users/${userId}`
-      : `${lawFirmId}/users`
+    return userId ? `${lawFirmId}/users/${userId}` : `${lawFirmId}/users`
   }
 
   static templates(lawFirmId: string): string {
@@ -365,7 +387,7 @@ export class FileValidation {
     'text/plain',
     'image/jpeg',
     'image/png',
-    'image/gif'
+    'image/gif',
   ]
 
   static readonly MAX_FILE_SIZE = 100 * 1024 * 1024 // 100MB
@@ -378,7 +400,11 @@ export class FileValidation {
     return size > 0 && size <= this.MAX_FILE_SIZE
   }
 
-  static validateFile(fileName: string, mimeType: string, size: number): {
+  static validateFile(
+    fileName: string,
+    mimeType: string,
+    size: number
+  ): {
     valid: boolean
     errors: string[]
   } {
@@ -393,12 +419,14 @@ export class FileValidation {
     }
 
     if (!this.isValidFileSize(size)) {
-      errors.push(`File size must be between 1 byte and ${this.MAX_FILE_SIZE / 1024 / 1024}MB`)
+      errors.push(
+        `File size must be between 1 byte and ${this.MAX_FILE_SIZE / 1024 / 1024}MB`
+      )
     }
 
     return {
       valid: errors.length === 0,
-      errors
+      errors,
     }
   }
 }

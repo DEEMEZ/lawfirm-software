@@ -15,7 +15,7 @@ export async function getUserWithPermissions(
       where: {
         id: userId,
         lawFirmId: lawFirmId,
-        isActive: true
+        isActive: true,
       },
       include: {
         userRoles: {
@@ -23,17 +23,17 @@ export async function getUserWithPermissions(
             role: {
               select: {
                 name: true,
-                permissions: true
-              }
-            }
-          }
+                permissions: true,
+              },
+            },
+          },
         },
         lawFirm: {
           select: {
-            isActive: true
-          }
-        }
-      }
+            isActive: true,
+          },
+        },
+      },
     })
 
     if (!user || !user.lawFirm?.isActive) {
@@ -42,7 +42,10 @@ export async function getUserWithPermissions(
 
     // Get primary role (highest level role)
     const userRoles = user.userRoles
-      .map((ur: any) => ur.role.name.toLowerCase().replace(/\s+/g, '_') as Role)
+      .map(
+        (ur: { role: { name: string } }) =>
+          ur.role.name.toLowerCase().replace(/\s+/g, '_') as Role
+      )
       .filter(Boolean)
 
     const primaryRole = getPrimaryRole(userRoles)
@@ -57,13 +60,17 @@ export async function getUserWithPermissions(
     // Add permissions from role definitions
     userRoles.forEach((role: Role) => {
       const rolePermissions = ROLE_PERMISSIONS[role] || []
-      rolePermissions.forEach((permission: string) => allPermissions.add(permission))
+      rolePermissions.forEach((permission: string) =>
+        allPermissions.add(permission)
+      )
     })
 
     // Add custom permissions from database roles
-    user.userRoles.forEach((userRole: any) => {
-      const customPermissions = userRole.role.permissions as string[] || []
-      customPermissions.forEach((permission: string) => allPermissions.add(permission))
+    user.userRoles.forEach((userRole: { role: { permissions?: unknown } }) => {
+      const customPermissions = (userRole.role.permissions as string[]) || []
+      customPermissions.forEach((permission: string) =>
+        allPermissions.add(permission)
+      )
     })
 
     return {
@@ -71,7 +78,7 @@ export async function getUserWithPermissions(
       lawFirmId: user.lawFirmId,
       role: primaryRole,
       permissions: Array.from(allPermissions),
-      isActive: user.isActive
+      isActive: user.isActive,
     }
   } catch (error) {
     console.error('Error getting user with permissions:', error)
@@ -87,8 +94,8 @@ export async function getPlatformUserContext(
     const platformUser = await prisma.platformUser.findFirst({
       where: {
         id: platformUserId,
-        isActive: true
-      }
+        isActive: true,
+      },
     })
 
     if (!platformUser) {
@@ -101,7 +108,7 @@ export async function getPlatformUserContext(
       lawFirmId: '', // Platform users don't belong to a specific law firm
       role: 'super_admin' as Role,
       permissions: ROLE_PERMISSIONS['super_admin'],
-      isActive: platformUser.isActive
+      isActive: platformUser.isActive,
     }
   } catch (error) {
     console.error('Error getting platform user context:', error)
@@ -122,7 +129,7 @@ function getPrimaryRole(roles: Role[]): Role | null {
     'junior_lawyer',
     'assistant',
     'secretary',
-    'client'
+    'client',
   ]
 
   // Return the highest level role
@@ -145,15 +152,15 @@ export async function canAccessLawFirm(
       where: {
         id: userId,
         lawFirmId: lawFirmId,
-        isActive: true
+        isActive: true,
       },
       include: {
         lawFirm: {
           select: {
-            isActive: true
-          }
-        }
-      }
+            isActive: true,
+          },
+        },
+      },
     })
 
     return user?.lawFirm?.isActive === true
@@ -176,9 +183,9 @@ export async function getUserAccessibleLawFirms(
         select: {
           id: true,
           name: true,
-          slug: true
+          slug: true,
         },
-        orderBy: { name: 'asc' }
+        orderBy: { name: 'asc' },
       })
       return lawFirms
     }
@@ -187,17 +194,17 @@ export async function getUserAccessibleLawFirms(
     const user = await prisma.user.findFirst({
       where: {
         id: userId,
-        isActive: true
+        isActive: true,
       },
       include: {
         lawFirm: {
           select: {
             id: true,
             name: true,
-            slug: true
-          }
-        }
-      }
+            slug: true,
+          },
+        },
+      },
     })
 
     return user?.lawFirm ? [user.lawFirm] : []
@@ -220,25 +227,30 @@ export async function refreshUserPermissions(
 // The following functions are placeholders for workspace management
 
 // Get user's workspace memberships (placeholder)
-export async function getUserWorkspaces(
-  ): Promise<{ id: string; name: string; role: string }[]> {
+export async function getUserWorkspaces(): Promise<
+  { id: string; name: string; role: string }[]
+> {
   // TODO: Implement when workspace tables are added to schema
-  console.log('getUserWorkspaces: Not implemented yet - workspace tables not in current schema')
+  console.log(
+    'getUserWorkspaces: Not implemented yet - workspace tables not in current schema'
+  )
   return []
 }
 
 // Check if user has access to specific workspace (placeholder)
-export async function canAccessWorkspace(
-  ): Promise<boolean> {
+export async function canAccessWorkspace(): Promise<boolean> {
   // TODO: Implement when workspace tables are added to schema
-  console.log('canAccessWorkspace: Not implemented yet - workspace tables not in current schema')
+  console.log(
+    'canAccessWorkspace: Not implemented yet - workspace tables not in current schema'
+  )
   return false
 }
 
 // Get user's role in specific workspace (placeholder)
-export async function getUserWorkspaceRole(
-  ): Promise<string | null> {
+export async function getUserWorkspaceRole(): Promise<string | null> {
   // TODO: Implement when workspace tables are added to schema
-  console.log('getUserWorkspaceRole: Not implemented yet - workspace tables not in current schema')
+  console.log(
+    'getUserWorkspaceRole: Not implemented yet - workspace tables not in current schema'
+  )
   return null
 }

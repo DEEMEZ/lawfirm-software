@@ -12,7 +12,7 @@ export enum ErrorType {
   RATE_LIMIT = 'rate_limit_error',
   SERVER = 'server_error',
   EXTERNAL = 'external_service_error',
-  DATABASE = 'database_error'
+  DATABASE = 'database_error',
 }
 
 // Error severity levels
@@ -20,11 +20,11 @@ export enum ErrorSeverity {
   LOW = 'low',
   MEDIUM = 'medium',
   HIGH = 'high',
-  CRITICAL = 'critical'
+  CRITICAL = 'critical',
 }
 
 // Type for error details - can be validation errors, stack traces, or other contextual data
-export type ErrorDetails = 
+export type ErrorDetails =
   | Record<string, unknown>
   | string[]
   | { stack?: string; [key: string]: unknown }
@@ -78,38 +78,91 @@ export class ValidationError extends APIError {
 }
 
 export class AuthenticationError extends APIError {
-  constructor(message: string = 'Authentication required', details?: ErrorDetails, code?: string) {
-    super(ErrorType.AUTHENTICATION, message, 401, ErrorSeverity.MEDIUM, details, code)
+  constructor(
+    message: string = 'Authentication required',
+    details?: ErrorDetails,
+    code?: string
+  ) {
+    super(
+      ErrorType.AUTHENTICATION,
+      message,
+      401,
+      ErrorSeverity.MEDIUM,
+      details,
+      code
+    )
   }
 }
 
 export class AuthorizationError extends APIError {
-  constructor(message: string = 'Insufficient permissions', details?: ErrorDetails, code?: string) {
-    super(ErrorType.AUTHORIZATION, message, 403, ErrorSeverity.MEDIUM, details, code)
+  constructor(
+    message: string = 'Insufficient permissions',
+    details?: ErrorDetails,
+    code?: string
+  ) {
+    super(
+      ErrorType.AUTHORIZATION,
+      message,
+      403,
+      ErrorSeverity.MEDIUM,
+      details,
+      code
+    )
   }
 }
 
 export class NotFoundError extends APIError {
-  constructor(message: string = 'Resource not found', details?: ErrorDetails, code?: string) {
+  constructor(
+    message: string = 'Resource not found',
+    details?: ErrorDetails,
+    code?: string
+  ) {
     super(ErrorType.NOT_FOUND, message, 404, ErrorSeverity.LOW, details, code)
   }
 }
 
 export class RateLimitError extends APIError {
-  constructor(message: string = 'Rate limit exceeded', details?: ErrorDetails, code?: string) {
-    super(ErrorType.RATE_LIMIT, message, 429, ErrorSeverity.MEDIUM, details, code)
+  constructor(
+    message: string = 'Rate limit exceeded',
+    details?: ErrorDetails,
+    code?: string
+  ) {
+    super(
+      ErrorType.RATE_LIMIT,
+      message,
+      429,
+      ErrorSeverity.MEDIUM,
+      details,
+      code
+    )
   }
 }
 
 export class DatabaseError extends APIError {
-  constructor(message: string = 'Database operation failed', details?: ErrorDetails, code?: string) {
+  constructor(
+    message: string = 'Database operation failed',
+    details?: ErrorDetails,
+    code?: string
+  ) {
     super(ErrorType.DATABASE, message, 500, ErrorSeverity.HIGH, details, code)
   }
 }
 
 export class ExternalServiceError extends APIError {
-  constructor(service: string, message: string = 'External service error', details?: ErrorDetails, code?: string) {
-    super(ErrorType.EXTERNAL, `${service}: ${message}`, 502, ErrorSeverity.MEDIUM, details, code)
+  constructor(
+    service: string,
+    message: string = 'External service error',
+    details?: ErrorDetails,
+    code?: string
+  ) {
+    super(
+      ErrorType.EXTERNAL,
+      `${service}: ${message}`,
+      502,
+      ErrorSeverity.MEDIUM,
+      details,
+      code
+    )
   }
 }
 
@@ -128,7 +181,7 @@ export class ErrorLogger {
       userId: error.userId,
       lawFirmId: error.lawFirmId,
       details: error.details,
-      code: error.code
+      code: error.code,
     }
 
     // Log to console (in production, you'd log to your logging service)
@@ -141,7 +194,9 @@ export class ErrorLogger {
     this.handleCriticalErrors(error)
   }
 
-  private static getLogLevel(severity: ErrorSeverity): 'error' | 'warn' | 'info' {
+  private static getLogLevel(
+    severity: ErrorSeverity
+  ): 'error' | 'warn' | 'info' {
     switch (severity) {
       case ErrorSeverity.CRITICAL:
       case ErrorSeverity.HIGH:
@@ -186,7 +241,7 @@ export function handleAPIError(
       timestamp: new Date().toISOString(),
       requestId,
       userId,
-      lawFirmId
+      lawFirmId,
     }
   } else if (error instanceof Error) {
     // Handle generic JavaScript errors
@@ -199,7 +254,7 @@ export function handleAPIError(
       timestamp: new Date().toISOString(),
       requestId,
       userId,
-      lawFirmId
+      lawFirmId,
     }
   } else {
     // Handle unknown errors
@@ -212,7 +267,7 @@ export function handleAPIError(
       timestamp: new Date().toISOString(),
       requestId,
       userId,
-      lawFirmId
+      lawFirmId,
     }
   }
 
@@ -225,10 +280,13 @@ export function handleAPIError(
       type: structuredError.type,
       message: structuredError.message,
       ...(structuredError.code && { code: structuredError.code }),
-      ...(structuredError.details && process.env.NODE_ENV === 'development' && { details: structuredError.details }),
+      ...(structuredError.details &&
+        process.env.NODE_ENV === 'development' && {
+          details: structuredError.details,
+        }),
       timestamp: structuredError.timestamp,
-      ...(requestId && { requestId })
-    }
+      ...(requestId && { requestId }),
+    },
   }
 
   return NextResponse.json(response, { status: structuredError.statusCode })
@@ -242,7 +300,13 @@ export function createErrorResponse(
   details?: ErrorDetails,
   requestId?: string
 ): NextResponse {
-  const error = new APIError(type, message, statusCode, ErrorSeverity.MEDIUM, details)
+  const error = new APIError(
+    type,
+    message,
+    statusCode,
+    ErrorSeverity.MEDIUM,
+    details
+  )
   return handleAPIError(error, requestId)
 }
 
@@ -251,28 +315,52 @@ export function createValidationErrorResponse(
   details?: ErrorDetails,
   requestId?: string
 ): NextResponse {
-  return createErrorResponse(ErrorType.VALIDATION, message, 400, details, requestId)
+  return createErrorResponse(
+    ErrorType.VALIDATION,
+    message,
+    400,
+    details,
+    requestId
+  )
 }
 
 export function createAuthErrorResponse(
   message: string = 'Authentication required',
   requestId?: string
 ): NextResponse {
-  return createErrorResponse(ErrorType.AUTHENTICATION, message, 401, undefined, requestId)
+  return createErrorResponse(
+    ErrorType.AUTHENTICATION,
+    message,
+    401,
+    undefined,
+    requestId
+  )
 }
 
 export function createAuthzErrorResponse(
   message: string = 'Insufficient permissions',
   requestId?: string
 ): NextResponse {
-  return createErrorResponse(ErrorType.AUTHORIZATION, message, 403, undefined, requestId)
+  return createErrorResponse(
+    ErrorType.AUTHORIZATION,
+    message,
+    403,
+    undefined,
+    requestId
+  )
 }
 
 export function createNotFoundErrorResponse(
   message: string = 'Resource not found',
   requestId?: string
 ): NextResponse {
-  return createErrorResponse(ErrorType.NOT_FOUND, message, 404, undefined, requestId)
+  return createErrorResponse(
+    ErrorType.NOT_FOUND,
+    message,
+    404,
+    undefined,
+    requestId
+  )
 }
 
 export function createRateLimitErrorResponse(
@@ -280,7 +368,13 @@ export function createRateLimitErrorResponse(
   details?: ErrorDetails,
   requestId?: string
 ): NextResponse {
-  return createErrorResponse(ErrorType.RATE_LIMIT, message, 429, details, requestId)
+  return createErrorResponse(
+    ErrorType.RATE_LIMIT,
+    message,
+    429,
+    details,
+    requestId
+  )
 }
 
 // Error boundaries for async operations
@@ -291,7 +385,12 @@ export async function withErrorHandling<T>(
   try {
     return await operation()
   } catch (error) {
-    return handleAPIError(error, context?.requestId, context?.userId, context?.lawFirmId)
+    return handleAPIError(
+      error,
+      context?.requestId,
+      context?.userId,
+      context?.lawFirmId
+    )
   }
 }
 
@@ -300,13 +399,16 @@ export function isDevelopment(): boolean {
   return process.env.NODE_ENV === 'development'
 }
 
-export function sanitizeErrorForProduction(error: Record<string, unknown>): Record<string, unknown> {
+export function sanitizeErrorForProduction(
+  error: Record<string, unknown>
+): Record<string, unknown> {
   if (isDevelopment()) {
     return error // Show full details in development
   }
 
   // In production, sanitize sensitive information
   // Remove stack trace and other potentially sensitive data
-  const { stack: _stack, ...sanitized } = error
+  const sanitized = { ...error }
+  delete sanitized.stack
   return sanitized
 }

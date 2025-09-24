@@ -15,7 +15,7 @@ export async function GET() {
     }
 
     // Check if user is super admin
-    const user = session.user as any
+    const user = session.user as { role?: string }
     if (user.role !== 'super_admin') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
@@ -28,17 +28,18 @@ export async function GET() {
         id: true,
         name: true,
         createdAt: true,
-        isActive: true
-      }
+        isActive: true,
+      },
     })
 
     // Convert to activity format
-    const activities = recentFirms.map(firm => ({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const activities = recentFirms.map((firm: any) => ({
       id: `firm-${firm.id}`,
       type: 'signup' as const,
       message: `New law firm "${firm.name}" signed up`,
       timestamp: firm.createdAt.toISOString(),
-      lawFirmName: firm.name
+      lawFirmName: firm.name,
     }))
 
     // In the future, you can add more activity types like:
@@ -48,7 +49,6 @@ export async function GET() {
     // These would come from audit logs or other tracking tables
 
     return NextResponse.json({ activities })
-
   } catch (error) {
     console.error('Error fetching dashboard activity:', error)
     return NextResponse.json(

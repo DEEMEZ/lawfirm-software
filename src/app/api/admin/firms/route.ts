@@ -19,6 +19,7 @@ export const GET = withRole(ROLES.SUPER_ADMIN, async (request: NextRequest) => {
     const skip = (page - 1) * limit
 
     // Build where clause
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {}
 
     if (status && status !== 'all') {
@@ -29,7 +30,7 @@ export const GET = withRole(ROLES.SUPER_ADMIN, async (request: NextRequest) => {
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
         { slug: { contains: search, mode: 'insensitive' } },
-        { domain: { contains: search, mode: 'insensitive' } }
+        { domain: { contains: search, mode: 'insensitive' } },
       ]
     }
 
@@ -39,28 +40,29 @@ export const GET = withRole(ROLES.SUPER_ADMIN, async (request: NextRequest) => {
         where,
         include: {
           users: {
-            select: { id: true, isActive: true }
+            select: { id: true, isActive: true },
           },
           cases: {
-            select: { id: true, status: true }
+            select: { id: true, status: true },
           },
           _count: {
             select: {
               users: true,
               cases: true,
-              documents: true
-            }
-          }
+              documents: true,
+            },
+          },
         },
         orderBy: { createdAt: 'desc' },
         skip,
-        take: limit
+        take: limit,
       }),
-      prisma.lawFirm.count({ where })
+      prisma.lawFirm.count({ where }),
     ])
 
     // Transform data for response
-    const firmsWithStats = firms.map(firm => ({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const firmsWithStats = firms.map((firm: any) => ({
       id: firm.id,
       name: firm.name,
       slug: firm.slug,
@@ -71,11 +73,14 @@ export const GET = withRole(ROLES.SUPER_ADMIN, async (request: NextRequest) => {
       updatedAt: firm.updatedAt,
       stats: {
         totalUsers: firm._count.users,
-        activeUsers: firm.users.filter(u => u.isActive).length,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        activeUsers: firm.users.filter((u: any) => u.isActive).length,
         totalCases: firm._count.cases,
-        activeCases: firm.cases.filter(c => c.status !== 'ARCHIVED').length,
-        totalDocuments: firm._count.documents
-      }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        activeCases: firm.cases.filter((c: any) => c.status !== 'ARCHIVED')
+          .length,
+        totalDocuments: firm._count.documents,
+      },
     }))
 
     return NextResponse.json({
@@ -84,10 +89,9 @@ export const GET = withRole(ROLES.SUPER_ADMIN, async (request: NextRequest) => {
         page,
         limit,
         total: totalCount,
-        pages: Math.ceil(totalCount / limit)
-      }
+        pages: Math.ceil(totalCount / limit),
+      },
     })
-
   } catch (error) {
     console.error('Error fetching law firms:', error)
     return NextResponse.json(
@@ -98,97 +102,109 @@ export const GET = withRole(ROLES.SUPER_ADMIN, async (request: NextRequest) => {
 })
 
 // POST /api/admin/firms - Create new law firm
-export const POST = withRole(ROLES.SUPER_ADMIN, async (request: NextRequest) => {
-  try {
-    const body = await request.json()
-    const {
-      name,
-      slug,
-      domain,
-      plan = 'STARTER',
-      ownerEmail,
-      ownerPassword,
-      ownerFirstName,
-      ownerLastName
-    } = body
+export const POST = withRole(
+  ROLES.SUPER_ADMIN,
+  async (request: NextRequest) => {
+    try {
+      const body = await request.json()
+      const {
+        name,
+        slug,
+        domain,
+        plan = 'STARTER',
+        ownerEmail,
+        ownerPassword,
+        ownerFirstName,
+        ownerLastName,
+      } = body
 
-    // Validate required fields
-    if (!name || !slug || !ownerEmail || !ownerPassword || !ownerFirstName || !ownerLastName) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      )
-    }
-
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(ownerEmail)) {
-      return NextResponse.json(
-        { error: 'Invalid email format' },
-        { status: 400 }
-      )
-    }
-
-    // Validate slug format
-    const slugRegex = /^[a-z0-9-]+$/
-    if (!slugRegex.test(slug)) {
-      return NextResponse.json(
-        { error: 'Invalid slug format. Use lowercase letters, numbers, and hyphens only.' },
-        { status: 400 }
-      )
-    }
-
-    // Check if slug or domain already exists
-    const existing = await prisma.lawFirm.findFirst({
-      where: {
-        OR: [
-          { slug },
-          ...(domain ? [{ domain }] : [])
-        ]
+      // Validate required fields
+      if (
+        !name ||
+        !slug ||
+        !ownerEmail ||
+        !ownerPassword ||
+        !ownerFirstName ||
+        !ownerLastName
+      ) {
+        return NextResponse.json(
+          { error: 'Missing required fields' },
+          { status: 400 }
+        )
       }
-    })
 
-    if (existing) {
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (!emailRegex.test(ownerEmail)) {
+        return NextResponse.json(
+          { error: 'Invalid email format' },
+          { status: 400 }
+        )
+      }
+
+      // Validate slug format
+      const slugRegex = /^[a-z0-9-]+$/
+      if (!slugRegex.test(slug)) {
+        return NextResponse.json(
+          {
+            error:
+              'Invalid slug format. Use lowercase letters, numbers, and hyphens only.',
+          },
+          { status: 400 }
+        )
+      }
+
+      // Check if slug or domain already exists
+      const existing = await prisma.lawFirm.findFirst({
+        where: {
+          OR: [{ slug }, ...(domain ? [{ domain }] : [])],
+        },
+      })
+
+      if (existing) {
+        return NextResponse.json(
+          { error: 'Slug or domain already exists' },
+          { status: 409 }
+        )
+      }
+
+      // Create law firm using the initialization script
+      const result = await initializeLawFirm({
+        name,
+        slug,
+        domain,
+        plan,
+        ownerEmail,
+        ownerPassword,
+        ownerFirstName,
+        ownerLastName,
+      })
+
       return NextResponse.json(
-        { error: 'Slug or domain already exists' },
-        { status: 409 }
+        {
+          message: 'Law firm created successfully',
+          lawFirm: {
+            id: result.lawFirm.id,
+            name: result.lawFirm.name,
+            slug: result.lawFirm.slug,
+            domain: result.lawFirm.domain,
+            plan: result.lawFirm.plan,
+            isActive: result.lawFirm.isActive,
+          },
+          owner: {
+            id: result.user.id,
+            email: result.platformUser.email,
+            name: result.platformUser.name,
+          },
+        },
+        { status: 201 }
+      )
+    } catch (error) {
+      console.error('Error creating law firm:', error)
+      return NextResponse.json(
+        { error: 'Failed to create law firm' },
+        { status: 500 }
       )
     }
-
-    // Create law firm using the initialization script
-    const result = await initializeLawFirm({
-      name,
-      slug,
-      domain,
-      plan,
-      ownerEmail,
-      ownerPassword,
-      ownerFirstName,
-      ownerLastName
-    })
-
-    return NextResponse.json({
-      message: 'Law firm created successfully',
-      lawFirm: {
-        id: result.lawFirm.id,
-        name: result.lawFirm.name,
-        slug: result.lawFirm.slug,
-        domain: result.lawFirm.domain,
-        plan: result.lawFirm.plan,
-        isActive: result.lawFirm.isActive
-      },
-      owner: {
-        id: result.user.id,
-        email: result.platformUser.email,
-        name: result.platformUser.name
-      }
-    }, { status: 201 })
-
-  } catch (error) {
-    console.error('Error creating law firm:', error)
-    return NextResponse.json(
-      { error: 'Failed to create law firm' },
-      { status: 500 }
-    )
   }
-})
+)

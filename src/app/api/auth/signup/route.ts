@@ -26,7 +26,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Start transaction to create firm and user
-    const result = await prisma.$transaction(async tx => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result = await prisma.$transaction(async (tx: any) => {
       // Create law firm
       const lawFirm = await tx.lawFirm.create({
         data: {

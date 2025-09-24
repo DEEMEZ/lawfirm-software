@@ -3,7 +3,7 @@
 
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 
 interface LawFirm {
@@ -36,28 +36,24 @@ export default function FirmsManagement() {
     page: 1,
     limit: 10,
     total: 0,
-    pages: 0
+    pages: 0,
   })
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
 
-  useEffect(() => {
-    fetchFirms()
-  }, [pagination.page, search, statusFilter])
-
-  const fetchFirms = async () => {
+  const fetchFirms = useCallback(async () => {
     try {
       const params = new URLSearchParams({
         page: pagination.page.toString(),
         limit: pagination.limit.toString(),
         ...(search && { search }),
-        ...(statusFilter !== 'all' && { status: statusFilter })
+        ...(statusFilter !== 'all' && { status: statusFilter }),
       })
 
       const response = await fetch(`/api/admin/firms?${params}`, {
-        credentials: 'include'
+        credentials: 'include',
       })
       if (response.ok) {
         const data = await response.json()
@@ -69,15 +65,19 @@ export default function FirmsManagement() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [pagination.page, pagination.limit, search, statusFilter])
 
-  const handleCreateFirm = async (formData: any) => {
+  useEffect(() => {
+    fetchFirms()
+  }, [fetchFirms])
+
+  const handleCreateFirm = async (formData: Record<string, unknown>) => {
     try {
       const response = await fetch('/api/admin/firms', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
-        credentials: 'include'
+        credentials: 'include',
       })
 
       if (response.ok) {
@@ -99,7 +99,7 @@ export default function FirmsManagement() {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isActive: !currentStatus }),
-        credentials: 'include'
+        credentials: 'include',
       })
 
       if (response.ok) {
@@ -122,7 +122,9 @@ export default function FirmsManagement() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">Law Firms Management</h1>
+        <h1 className="text-2xl font-bold text-gray-900">
+          Law Firms Management
+        </h1>
         <button
           onClick={() => setShowCreateModal(true)}
           className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
@@ -139,13 +141,13 @@ export default function FirmsManagement() {
               type="text"
               placeholder="Search firms..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={e => setSearch(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg"
             />
           </div>
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={e => setStatusFilter(e.target.value)}
             className="px-3 py-2 border border-gray-300 rounded-lg"
           >
             <option value="all">All Status</option>
@@ -181,11 +183,13 @@ export default function FirmsManagement() {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {firms.map((firm) => (
+            {firms.map(firm => (
               <tr key={firm.id} className="hover:bg-gray-50">
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div>
-                    <div className="text-sm font-medium text-gray-900">{firm.name}</div>
+                    <div className="text-sm font-medium text-gray-900">
+                      {firm.name}
+                    </div>
                     <div className="text-sm text-gray-500">
                       {firm.slug} {firm.domain && `• ${firm.domain}`}
                     </div>
@@ -203,11 +207,13 @@ export default function FirmsManagement() {
                   {firm.stats.activeCases} / {firm.stats.totalCases}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                    firm.isActive
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-red-100 text-red-800'
-                  }`}>
+                  <span
+                    className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                      firm.isActive
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-red-100 text-red-800'
+                    }`}
+                  >
                     {firm.isActive ? 'Active' : 'Suspended'}
                   </span>
                 </td>
@@ -240,20 +246,24 @@ export default function FirmsManagement() {
       {/* Pagination */}
       <div className="flex items-center justify-between bg-white px-4 py-3 rounded-lg shadow">
         <div className="text-sm text-gray-700">
-          Showing {((pagination.page - 1) * pagination.limit) + 1} to{' '}
+          Showing {(pagination.page - 1) * pagination.limit + 1} to{' '}
           {Math.min(pagination.page * pagination.limit, pagination.total)} of{' '}
           {pagination.total} results
         </div>
         <div className="flex space-x-2">
           <button
-            onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
+            onClick={() =>
+              setPagination(prev => ({ ...prev, page: prev.page - 1 }))
+            }
             disabled={pagination.page === 1}
             className="px-3 py-1 border border-gray-300 rounded disabled:opacity-50"
           >
             Previous
           </button>
           <button
-            onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
+            onClick={() =>
+              setPagination(prev => ({ ...prev, page: prev.page + 1 }))
+            }
             disabled={pagination.page === pagination.pages}
             className="px-3 py-1 border border-gray-300 rounded disabled:opacity-50"
           >
@@ -274,9 +284,12 @@ export default function FirmsManagement() {
 }
 
 // Create Firm Modal Component
-function CreateFirmModal({ onClose, onSubmit }: {
+function CreateFirmModal({
+  onClose,
+  onSubmit,
+}: {
   onClose: () => void
-  onSubmit: (data: any) => void
+  onSubmit: (data: Record<string, unknown>) => void
 }) {
   const [formData, setFormData] = useState({
     name: '',
@@ -286,7 +299,7 @@ function CreateFirmModal({ onClose, onSubmit }: {
     ownerEmail: '',
     ownerPassword: '',
     ownerFirstName: '',
-    ownerLastName: ''
+    ownerLastName: '',
   })
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -308,7 +321,9 @@ function CreateFirmModal({ onClose, onSubmit }: {
               type="text"
               required
               value={formData.name}
-              onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+              onChange={e =>
+                setFormData(prev => ({ ...prev, name: e.target.value }))
+              }
               className="w-full px-3 py-2 border border-gray-300 rounded-lg"
             />
           </div>
@@ -322,7 +337,9 @@ function CreateFirmModal({ onClose, onSubmit }: {
               required
               pattern="^[a-z0-9-]+$"
               value={formData.slug}
-              onChange={(e) => setFormData(prev => ({ ...prev, slug: e.target.value }))}
+              onChange={e =>
+                setFormData(prev => ({ ...prev, slug: e.target.value }))
+              }
               className="w-full px-3 py-2 border border-gray-300 rounded-lg"
               placeholder="lowercase-with-hyphens"
             />
@@ -335,7 +352,9 @@ function CreateFirmModal({ onClose, onSubmit }: {
             <input
               type="text"
               value={formData.domain}
-              onChange={(e) => setFormData(prev => ({ ...prev, domain: e.target.value }))}
+              onChange={e =>
+                setFormData(prev => ({ ...prev, domain: e.target.value }))
+              }
               className="w-full px-3 py-2 border border-gray-300 rounded-lg"
               placeholder="firm.example.com"
             />
@@ -347,7 +366,9 @@ function CreateFirmModal({ onClose, onSubmit }: {
             </label>
             <select
               value={formData.plan}
-              onChange={(e) => setFormData(prev => ({ ...prev, plan: e.target.value }))}
+              onChange={e =>
+                setFormData(prev => ({ ...prev, plan: e.target.value }))
+              }
               className="w-full px-3 py-2 border border-gray-300 rounded-lg"
             >
               <option value="STARTER">Starter</option>
@@ -365,7 +386,12 @@ function CreateFirmModal({ onClose, onSubmit }: {
                 type="text"
                 required
                 value={formData.ownerFirstName}
-                onChange={(e) => setFormData(prev => ({ ...prev, ownerFirstName: e.target.value }))}
+                onChange={e =>
+                  setFormData(prev => ({
+                    ...prev,
+                    ownerFirstName: e.target.value,
+                  }))
+                }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg"
               />
             </div>
@@ -377,7 +403,12 @@ function CreateFirmModal({ onClose, onSubmit }: {
                 type="text"
                 required
                 value={formData.ownerLastName}
-                onChange={(e) => setFormData(prev => ({ ...prev, ownerLastName: e.target.value }))}
+                onChange={e =>
+                  setFormData(prev => ({
+                    ...prev,
+                    ownerLastName: e.target.value,
+                  }))
+                }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg"
               />
             </div>
@@ -391,7 +422,9 @@ function CreateFirmModal({ onClose, onSubmit }: {
               type="email"
               required
               value={formData.ownerEmail}
-              onChange={(e) => setFormData(prev => ({ ...prev, ownerEmail: e.target.value }))}
+              onChange={e =>
+                setFormData(prev => ({ ...prev, ownerEmail: e.target.value }))
+              }
               className="w-full px-3 py-2 border border-gray-300 rounded-lg"
             />
           </div>
@@ -404,7 +437,12 @@ function CreateFirmModal({ onClose, onSubmit }: {
               type="password"
               required
               value={formData.ownerPassword}
-              onChange={(e) => setFormData(prev => ({ ...prev, ownerPassword: e.target.value }))}
+              onChange={e =>
+                setFormData(prev => ({
+                  ...prev,
+                  ownerPassword: e.target.value,
+                }))
+              }
               className="w-full px-3 py-2 border border-gray-300 rounded-lg"
             />
           </div>

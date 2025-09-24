@@ -21,6 +21,7 @@ export const GET = withRole(ROLES.SUPER_ADMIN, async (request: NextRequest) => {
     const skip = (page - 1) * limit
 
     // Build where clause
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {}
 
     if (lawFirmId) {
@@ -76,7 +77,7 @@ export const GET = withRole(ROLES.SUPER_ADMIN, async (request: NextRequest) => {
     `
 
     // Get total count
-    const totalCount = await prisma.$queryRaw`
+    const totalCount = (await prisma.$queryRaw`
       SELECT COUNT(*) as count
       FROM platform_audit_logs pal
       WHERE (${lawFirmId}::uuid IS NULL OR pal.law_firm_id = ${lawFirmId}::uuid)
@@ -84,7 +85,7 @@ export const GET = withRole(ROLES.SUPER_ADMIN, async (request: NextRequest) => {
         AND (${entityType}::text IS NULL OR pal.entity_type = ${entityType})
         AND (${startDate}::timestamp IS NULL OR pal.created_at >= ${startDate}::timestamp)
         AND (${endDate}::timestamp IS NULL OR pal.created_at <= ${endDate}::timestamp)
-    ` as any[]
+    `) as { count: bigint }[]
 
     const total = Number(totalCount[0]?.count || 0)
 
@@ -94,10 +95,9 @@ export const GET = withRole(ROLES.SUPER_ADMIN, async (request: NextRequest) => {
         page,
         limit,
         total,
-        pages: Math.ceil(total / limit)
-      }
+        pages: Math.ceil(total / limit),
+      },
     })
-
   } catch (error) {
     console.error('Error fetching audit logs:', error)
     return NextResponse.json(

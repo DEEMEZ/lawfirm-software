@@ -9,21 +9,24 @@ import {
   hasRoleOrHigher,
   canAccessResource,
   UserContext,
-  Role
+  Role,
 } from '../rbac'
 
 // Mock user contexts for testing
-const createMockUserContext = (role: Role, lawFirmId = 'test-firm-1'): UserContext => ({
+const createMockUserContext = (
+  role: Role,
+  lawFirmId = 'test-firm-1'
+): UserContext => ({
   id: `user-${role}`,
   lawFirmId,
   role,
   permissions: [], // Will be set based on role
-  isActive: true
+  isActive: true,
 })
 
 // Test permissions for each role
 export function testRolePermissions() {
-  const testResults: Record<string, any> = {}
+  const testResults: Record<string, Record<string, unknown>> = {}
 
   Object.values(ROLES).forEach(role => {
     const userContext = createMockUserContext(role)
@@ -37,16 +40,28 @@ export function testRolePermissions() {
 
       switch (action) {
         case 'canCreateLawFirm':
-          actual = hasPermission(userContext, PERMISSIONS.PLATFORM.MANAGE_LAW_FIRMS)
+          actual = hasPermission(
+            userContext,
+            PERMISSIONS.PLATFORM.MANAGE_LAW_FIRMS
+          )
           break
         case 'canViewAllFirms':
-          actual = hasPermission(userContext, PERMISSIONS.PLATFORM.VIEW_ANALYTICS)
+          actual = hasPermission(
+            userContext,
+            PERMISSIONS.PLATFORM.VIEW_ANALYTICS
+          )
           break
         case 'canManageBilling':
-          actual = hasPermission(userContext, PERMISSIONS.PLATFORM.MANAGE_BILLING)
+          actual = hasPermission(
+            userContext,
+            PERMISSIONS.PLATFORM.MANAGE_BILLING
+          )
           break
         case 'canImpersonate':
-          actual = hasPermission(userContext, PERMISSIONS.PLATFORM.SUPPORT_ACCESS)
+          actual = hasPermission(
+            userContext,
+            PERMISSIONS.PLATFORM.SUPPORT_ACCESS
+          )
           break
         case 'canCreateUser':
           actual = hasPermission(userContext, PERMISSIONS.USERS.CREATE)
@@ -79,7 +94,7 @@ export function testRolePermissions() {
       testResults[role][action] = {
         expected,
         actual,
-        passed: expected === actual
+        passed: expected === actual,
       }
     })
   })
@@ -94,10 +109,18 @@ export function testRoleHierarchy() {
     { user: ROLES.SUPER_ADMIN, required: ROLES.CLIENT, expected: true },
     { user: ROLES.OWNER, required: ROLES.SENIOR_LAWYER, expected: true },
     { user: ROLES.OWNER, required: ROLES.SUPER_ADMIN, expected: false },
-    { user: ROLES.SENIOR_LAWYER, required: ROLES.JUNIOR_LAWYER, expected: true },
-    { user: ROLES.JUNIOR_LAWYER, required: ROLES.SENIOR_LAWYER, expected: false },
+    {
+      user: ROLES.SENIOR_LAWYER,
+      required: ROLES.JUNIOR_LAWYER,
+      expected: true,
+    },
+    {
+      user: ROLES.JUNIOR_LAWYER,
+      required: ROLES.SENIOR_LAWYER,
+      expected: false,
+    },
     { user: ROLES.ASSISTANT, required: ROLES.CLIENT, expected: true },
-    { user: ROLES.CLIENT, required: ROLES.ASSISTANT, expected: false }
+    { user: ROLES.CLIENT, required: ROLES.ASSISTANT, expected: false },
   ]
 
   return hierarchyTests.map(test => {
@@ -107,7 +130,7 @@ export function testRoleHierarchy() {
     return {
       ...test,
       actual,
-      passed: test.expected === actual
+      passed: test.expected === actual,
     }
   })
 }
@@ -125,43 +148,43 @@ export function testResourceAccess() {
       user: createMockUserContext(ROLES.SUPER_ADMIN, firm1),
       resource: { ownerId: user2, lawFirmId: firm2 },
       expected: true,
-      description: 'Super admin accesses cross-firm resource'
+      description: 'Super admin accesses cross-firm resource',
     },
     // Owner can access anything in their firm
     {
       user: createMockUserContext(ROLES.OWNER, firm1),
       resource: { ownerId: user2, lawFirmId: firm1 },
       expected: true,
-      description: 'Owner accesses resource in same firm'
+      description: 'Owner accesses resource in same firm',
     },
     // Owner cannot access other firm's resources
     {
       user: createMockUserContext(ROLES.OWNER, firm1),
       resource: { ownerId: user2, lawFirmId: firm2 },
       expected: false,
-      description: 'Owner cannot access cross-firm resource'
+      description: 'Owner cannot access cross-firm resource',
     },
     // User can access their own resource
     {
       user: { ...createMockUserContext(ROLES.JUNIOR_LAWYER, firm1), id: user1 },
       resource: { ownerId: user1, lawFirmId: firm1 },
       expected: true,
-      description: 'User accesses own resource'
+      description: 'User accesses own resource',
     },
     // User cannot access other user's resource (unless senior lawyer)
     {
       user: createMockUserContext(ROLES.JUNIOR_LAWYER, firm1),
       resource: { ownerId: user2, lawFirmId: firm1 },
       expected: false,
-      description: 'Junior lawyer cannot access other user resource'
+      description: 'Junior lawyer cannot access other user resource',
     },
     // Senior lawyer can access resources in firm
     {
       user: createMockUserContext(ROLES.SENIOR_LAWYER, firm1),
       resource: { ownerId: user2, lawFirmId: firm1 },
       expected: true,
-      description: 'Senior lawyer accesses resource in same firm'
-    }
+      description: 'Senior lawyer accesses resource in same firm',
+    },
   ]
 
   return accessTests.map(test => {
@@ -174,7 +197,7 @@ export function testResourceAccess() {
     return {
       ...test,
       actual,
-      passed: test.expected === actual
+      passed: test.expected === actual,
     }
   })
 }
@@ -193,9 +216,12 @@ export function runAllRBACTests() {
   const accessResults = testResourceAccess()
 
   // Summary
-  const allPermissionTests = Object.values(permissionResults)
-    .flatMap(roleTests => Object.values(roleTests as any))
-  const permissionPassed = allPermissionTests.filter((test: any) => test.passed).length
+  const allPermissionTests = Object.values(permissionResults).flatMap(
+    roleTests => Object.values(roleTests as Record<string, unknown>)
+  )
+  const permissionPassed = allPermissionTests.filter(
+    (test: { passed?: boolean }) => test.passed
+  ).length
   const permissionTotal = allPermissionTests.length
 
   const hierarchyPassed = hierarchyResults.filter(test => test.passed).length
@@ -209,11 +235,14 @@ export function runAllRBACTests() {
   console.log(`Hierarchy Tests: ${hierarchyPassed}/${hierarchyTotal} passed`)
   console.log(`Access Tests: ${accessPassed}/${accessTotal} passed`)
 
-  const allPassed = permissionPassed === permissionTotal &&
-                   hierarchyPassed === hierarchyTotal &&
-                   accessPassed === accessTotal
+  const allPassed =
+    permissionPassed === permissionTotal &&
+    hierarchyPassed === hierarchyTotal &&
+    accessPassed === accessTotal
 
-  console.log(`\n${allPassed ? '✅' : '❌'} Overall: ${allPassed ? 'ALL TESTS PASSED' : 'SOME TESTS FAILED'}`)
+  console.log(
+    `\n${allPassed ? '✅' : '❌'} Overall: ${allPassed ? 'ALL TESTS PASSED' : 'SOME TESTS FAILED'}`
+  )
 
   return {
     permissions: permissionResults,
@@ -223,15 +252,17 @@ export function runAllRBACTests() {
       allPassed,
       permissionTests: { passed: permissionPassed, total: permissionTotal },
       hierarchyTests: { passed: hierarchyPassed, total: hierarchyTotal },
-      accessTests: { passed: accessPassed, total: accessTotal }
-    }
+      accessTests: { passed: accessPassed, total: accessTotal },
+    },
   }
 }
 
 // Export for use in actual test framework
-export default {
+const rbacTestExports = {
   testRolePermissions,
   testRoleHierarchy,
   testResourceAccess,
-  runAllRBACTests
+  runAllRBACTests,
 }
+
+export default rbacTestExports

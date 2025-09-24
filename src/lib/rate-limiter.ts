@@ -35,13 +35,15 @@ export interface RateLimitStore {
 class MemoryStore implements RateLimitStore {
   private hits: Map<string, { count: number; resetTime: number }> = new Map()
 
-  async increment(key: string): Promise<{ totalHits: number; resetTime: number }> {
+  async increment(
+    key: string
+  ): Promise<{ totalHits: number; resetTime: number }> {
     const now = Date.now()
     const current = this.hits.get(key)
 
     if (!current || now > current.resetTime) {
       // Create new entry or reset expired entry
-      const resetTime = now + (60 * 1000) // 1 minute window
+      const resetTime = now + 60 * 1000 // 1 minute window
       this.hits.set(key, { count: 1, resetTime })
       return { totalHits: 1, resetTime }
     }
@@ -86,9 +88,12 @@ export class RateLimiter {
 
     // Cleanup expired entries every 5 minutes for memory store
     if (this.store instanceof MemoryStore) {
-      setInterval(() => {
-        (this.store as MemoryStore).cleanup()
-      }, 5 * 60 * 1000)
+      setInterval(
+        () => {
+          ;(this.store as MemoryStore).cleanup()
+        },
+        5 * 60 * 1000
+      )
     }
   }
 
@@ -102,7 +107,7 @@ export class RateLimiter {
         limit: this.config.maxRequests,
         current: totalHits,
         remaining: Math.max(0, this.config.maxRequests - totalHits),
-        resetTime
+        resetTime,
       }
 
       if (!result.success) {
@@ -119,7 +124,7 @@ export class RateLimiter {
         current: 0,
         remaining: this.config.maxRequests,
         resetTime: Date.now() + this.config.windowMs,
-        error: 'Rate limit check failed'
+        error: 'Rate limit check failed',
       }
     }
   }
@@ -155,7 +160,7 @@ export class RateLimiter {
     let hash = 0
     for (let i = 0; i < str.length; i++) {
       const char = str.charCodeAt(i)
-      hash = ((hash << 5) - hash) + char
+      hash = (hash << 5) - hash + char
       hash = hash & hash // Convert to 32-bit integer
     }
     return Math.abs(hash).toString(16)
@@ -168,28 +173,30 @@ export const rateLimiters = {
   auth: new RateLimiter({
     windowMs: 15 * 60 * 1000, // 15 minutes
     maxRequests: 5, // 5 attempts per 15 minutes
-    message: 'Too many authentication attempts, please try again later'
+    message: 'Too many authentication attempts, please try again later',
   }),
 
   // Public API endpoints
   publicAPI: new RateLimiter({
     windowMs: 60 * 1000, // 1 minute
     maxRequests: 100, // 100 requests per minute
-    message: 'API rate limit exceeded, please slow down'
+    message: 'API rate limit exceeded, please slow down',
   }),
 
   // Document upload endpoints
   upload: new RateLimiter({
     windowMs: 60 * 1000, // 1 minute
     maxRequests: 20, // 20 uploads per minute
-    message: 'Upload rate limit exceeded, please wait before uploading more files'
+    message:
+      'Upload rate limit exceeded, please wait before uploading more files',
   }),
 
   // Email sending endpoints
   email: new RateLimiter({
     windowMs: 60 * 1000, // 1 minute
     maxRequests: 10, // 10 emails per minute
-    message: 'Email rate limit exceeded, please wait before sending more emails'
+    message:
+      'Email rate limit exceeded, please wait before sending more emails',
   }),
 
   // General API endpoints (per law firm)
@@ -201,15 +208,15 @@ export const rateLimiters = {
       const lawFirmId = request.headers.get('x-law-firm-id') || 'unknown'
       return `firm:${lawFirmId}`
     },
-    message: 'Firm rate limit exceeded, please reduce request frequency'
+    message: 'Firm rate limit exceeded, please reduce request frequency',
   }),
 
   // Admin endpoints (more lenient for super admins)
   admin: new RateLimiter({
     windowMs: 60 * 1000, // 1 minute
     maxRequests: 500, // 500 requests per minute
-    message: 'Admin rate limit exceeded'
-  })
+    message: 'Admin rate limit exceeded',
+  }),
 }
 
 // Rate limit middleware creator
@@ -223,7 +230,7 @@ export function createRateLimitMiddleware(limiter: RateLimiter) {
         current: result.current,
         remaining: result.remaining,
         resetTime: result.resetTime,
-        retryAfter: Math.ceil((result.resetTime - Date.now()) / 1000)
+        retryAfter: Math.ceil((result.resetTime - Date.now()) / 1000),
       })
     }
 
@@ -231,14 +238,16 @@ export function createRateLimitMiddleware(limiter: RateLimiter) {
     return {
       'X-RateLimit-Limit': result.limit.toString(),
       'X-RateLimit-Remaining': result.remaining.toString(),
-      'X-RateLimit-Reset': result.resetTime.toString()
+      'X-RateLimit-Reset': result.resetTime.toString(),
     }
   }
 }
 
 // Route-specific rate limit helpers
 export const authRateLimit = createRateLimitMiddleware(rateLimiters.auth)
-export const publicAPIRateLimit = createRateLimitMiddleware(rateLimiters.publicAPI)
+export const publicAPIRateLimit = createRateLimitMiddleware(
+  rateLimiters.publicAPI
+)
 export const uploadRateLimit = createRateLimitMiddleware(rateLimiters.upload)
 export const emailRateLimit = createRateLimitMiddleware(rateLimiters.email)
 export const firmRateLimit = createRateLimitMiddleware(rateLimiters.perFirm)
@@ -267,7 +276,11 @@ export async function resetRateLimit(
     throw new Error(`Rate limiter '${limiterName}' not found`)
   }
 
-  await (limiter as any).store.resetKey(key)
+  await (
+    limiter as unknown as {
+      store: { resetKey: (key: string) => Promise<void> }
+    }
+  ).store.resetKey(key)
 }
 
 // Rate limit configuration helpers
@@ -287,7 +300,7 @@ export function createPerUserRateLimiter(
       const userId = request.headers.get('x-user-id') || 'anonymous'
       return `user:${userId}`
     },
-    message: message || 'User rate limit exceeded'
+    message: message || 'User rate limit exceeded',
   })
 }
 
@@ -299,6 +312,6 @@ export function createPerIPRateLimiter(
   return new RateLimiter({
     windowMs,
     maxRequests,
-    message: message || 'IP rate limit exceeded'
+    message: message || 'IP rate limit exceeded',
   })
 }

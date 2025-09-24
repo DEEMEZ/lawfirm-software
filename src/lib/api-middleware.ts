@@ -2,7 +2,7 @@
 // Purpose: Combine error handling, rate limiting, and request processing
 
 import { NextRequest, NextResponse } from 'next/server'
-import { handleAPIError, ErrorLogger, ErrorSeverity, ErrorType } from './error-handler'
+import { handleAPIError } from './error-handler'
 import { RateLimiter, rateLimiters } from './rate-limiter'
 import { v4 as uuidv4 } from 'uuid'
 
@@ -31,14 +31,14 @@ export interface MiddlewareOptions {
 }
 
 // API response wrapper
-export interface APIResponse<T = any> {
+export interface APIResponse<T = unknown> {
   success: boolean
   data?: T
   error?: {
     type: string
     message: string
     code?: string
-    details?: any
+    details?: Record<string, unknown>
     timestamp: string
     requestId: string
   }
@@ -64,7 +64,7 @@ export class APIMiddleware {
       method: request.method,
       url: request.url,
       userId: request.headers.get('x-user-id') || undefined,
-      lawFirmId: request.headers.get('x-law-firm-id') || undefined
+      lawFirmId: request.headers.get('x-law-firm-id') || undefined,
     }
   }
 
@@ -81,7 +81,10 @@ export class APIMiddleware {
 
   // Main middleware wrapper
   public static withMiddleware(
-    handler: (request: NextRequest, context: RequestContext) => Promise<NextResponse>,
+    handler: (
+      request: NextRequest,
+      context: RequestContext
+    ) => Promise<NextResponse>,
     options: MiddlewareOptions = {}
   ) {
     return async (request: NextRequest): Promise<NextResponse> => {
@@ -96,7 +99,7 @@ export class APIMiddleware {
 
         // Apply rate limiting if configured
         if (options.rateLimit) {
-          await this.applyRateLimit(request, options.rateLimit, context)
+          await this.applyRateLimit(request, options.rateLimit)
         }
 
         // Log request if enabled
@@ -116,7 +119,6 @@ export class APIMiddleware {
         }
 
         return response
-
       } catch (error) {
         // Handle errors with context
         const errorResponse = handleAPIError(
@@ -160,15 +162,27 @@ export class APIMiddleware {
       }
 
       if (corsConfig.methods) {
-        response.headers.set('Access-Control-Allow-Methods', corsConfig.methods.join(', '))
+        response.headers.set(
+          'Access-Control-Allow-Methods',
+          corsConfig.methods.join(', ')
+        )
       } else {
-        response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+        response.headers.set(
+          'Access-Control-Allow-Methods',
+          'GET, POST, PUT, DELETE, OPTIONS'
+        )
       }
 
       if (corsConfig.headers) {
-        response.headers.set('Access-Control-Allow-Headers', corsConfig.headers.join(', '))
+        response.headers.set(
+          'Access-Control-Allow-Headers',
+          corsConfig.headers.join(', ')
+        )
       } else {
-        response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Law-Firm-ID, X-User-ID')
+        response.headers.set(
+          'Access-Control-Allow-Headers',
+          'Content-Type, Authorization, X-Law-Firm-ID, X-User-ID'
+        )
       }
 
       response.headers.set('Access-Control-Max-Age', '86400')
@@ -181,10 +195,10 @@ export class APIMiddleware {
   // Rate limiting
   private static async applyRateLimit(
     request: NextRequest,
-    rateLimit: RateLimiter | keyof typeof rateLimiters,
-    context: RequestContext
+    rateLimit: RateLimiter | keyof typeof rateLimiters
   ): Promise<void> {
-    const limiter = typeof rateLimit === 'string' ? rateLimiters[rateLimit] : rateLimit
+    const limiter =
+      typeof rateLimit === 'string' ? rateLimiters[rateLimit] : rateLimit
 
     if (!limiter) {
       throw new Error(`Rate limiter not found: ${rateLimit}`)
@@ -195,23 +209,29 @@ export class APIMiddleware {
     if (!result.success) {
       const error = new Error(result.error || 'Rate limit exceeded')
       error.name = 'RateLimitError'
-      ;(error as any).statusCode = 429
-      ;(error as any).details = {
+      ;(error as { statusCode?: number }).statusCode = 429
+      ;(error as { details?: Record<string, unknown> }).details = {
         limit: result.limit,
         current: result.current,
         remaining: result.remaining,
         resetTime: result.resetTime,
-        retryAfter: Math.ceil((result.resetTime - Date.now()) / 1000)
+        retryAfter: Math.ceil((result.resetTime - Date.now()) / 1000),
       }
       throw error
     }
   }
 
   // Add standard response headers
-  private static addStandardHeaders(response: NextResponse, context: RequestContext): void {
+  private static addStandardHeaders(
+    response: NextResponse,
+    context: RequestContext
+  ): void {
     response.headers.set('X-Request-ID', context.requestId)
     response.headers.set('X-Timestamp', new Date().toISOString())
-    response.headers.set('X-Processing-Time', `${Date.now() - context.startTime}ms`)
+    response.headers.set(
+      'X-Processing-Time',
+      `${Date.now() - context.startTime}ms`
+    )
 
     // Security headers
     response.headers.set('X-Content-Type-Options', 'nosniff')
@@ -228,7 +248,7 @@ export class APIMiddleware {
       userAgent: context.userAgent,
       userId: context.userId,
       lawFirmId: context.lawFirmId,
-      timestamp: new Date(context.startTime).toISOString()
+      timestamp: new Date(context.startTime).toISOString(),
     })
   }
 
@@ -239,7 +259,8 @@ export class APIMiddleware {
     error?: unknown
   ): void {
     const processingTime = Date.now() - context.startTime
-    const logLevel = statusCode >= 500 ? 'error' : statusCode >= 400 ? 'warn' : 'info'
+    const logLevel =
+      statusCode >= 500 ? 'error' : statusCode >= 400 ? 'warn' : 'info'
 
     const logData = {
       requestId: context.requestId,
@@ -249,16 +270,22 @@ export class APIMiddleware {
       processingTime: `${processingTime}ms`,
       ip: context.ip,
       userId: context.userId,
-      lawFirmId: context.lawFirmId
+      lawFirmId: context.lawFirmId,
     }
 
     if (error) {
-      console[logLevel](`📤 ${context.method} ${context.url} - ${statusCode} (${processingTime}ms)`, {
-        ...logData,
-        error: error instanceof Error ? error.message : String(error)
-      })
+      console[logLevel](
+        `📤 ${context.method} ${context.url} - ${statusCode} (${processingTime}ms)`,
+        {
+          ...logData,
+          error: error instanceof Error ? error.message : String(error),
+        }
+      )
     } else {
-      console[logLevel](`📤 ${context.method} ${context.url} - ${statusCode} (${processingTime}ms)`, logData)
+      console[logLevel](
+        `📤 ${context.method} ${context.url} - ${statusCode} (${processingTime}ms)`,
+        logData
+      )
     }
   }
 
@@ -274,8 +301,8 @@ export class APIMiddleware {
       meta: {
         requestId: context.requestId,
         timestamp: new Date().toISOString(),
-        processingTime: Date.now() - context.startTime
-      }
+        processingTime: Date.now() - context.startTime,
+      },
     }
 
     return NextResponse.json(response, { status: statusCode })
@@ -299,8 +326,8 @@ export class APIMiddleware {
       meta: {
         requestId: context.requestId,
         timestamp: new Date().toISOString(),
-        processingTime: Date.now() - context.startTime
-      }
+        processingTime: Date.now() - context.startTime,
+      },
     }
 
     return NextResponse.json(response)
@@ -310,32 +337,50 @@ export class APIMiddleware {
 // Convenience middleware creators
 export function withRateLimit(
   limiter: RateLimiter | keyof typeof rateLimiters,
-  handler: (request: NextRequest, context: RequestContext) => Promise<NextResponse>
+  handler: (
+    request: NextRequest,
+    context: RequestContext
+  ) => Promise<NextResponse>
 ) {
-  return APIMiddleware.withMiddleware(handler, { rateLimit: limiter, enableLogging: true })
+  return APIMiddleware.withMiddleware(handler, {
+    rateLimit: limiter,
+    enableLogging: true,
+  })
 }
 
 export function withLogging(
-  handler: (request: NextRequest, context: RequestContext) => Promise<NextResponse>
+  handler: (
+    request: NextRequest,
+    context: RequestContext
+  ) => Promise<NextResponse>
 ) {
   return APIMiddleware.withMiddleware(handler, { enableLogging: true })
 }
 
 export function withCORS(
   corsConfig: NonNullable<MiddlewareOptions['cors']>,
-  handler: (request: NextRequest, context: RequestContext) => Promise<NextResponse>
+  handler: (
+    request: NextRequest,
+    context: RequestContext
+  ) => Promise<NextResponse>
 ) {
-  return APIMiddleware.withMiddleware(handler, { cors: corsConfig, enableLogging: true })
+  return APIMiddleware.withMiddleware(handler, {
+    cors: corsConfig,
+    enableLogging: true,
+  })
 }
 
 export function withFullMiddleware(
-  handler: (request: NextRequest, context: RequestContext) => Promise<NextResponse>,
+  handler: (
+    request: NextRequest,
+    context: RequestContext
+  ) => Promise<NextResponse>,
   options: MiddlewareOptions = {}
 ) {
   return APIMiddleware.withMiddleware(handler, {
     enableLogging: true,
     enableMetrics: true,
-    ...options
+    ...options,
   })
 }
 
