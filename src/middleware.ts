@@ -1,3 +1,4 @@
+//middleware.ts
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { verifyToken } from './lib/auth'
@@ -8,7 +9,8 @@ export function middleware(request: NextRequest) {
   const isAuthPage = pathname.startsWith('/auth')
   const isApiAuthRoute = pathname.startsWith('/api/auth')
   const isTestRoute = pathname.startsWith('/api/test')
-  const isAdminRoute = pathname.startsWith('/admin') || pathname.startsWith('/api/admin')
+  const isAdminRoute =
+    pathname.startsWith('/admin') || pathname.startsWith('/api/admin')
 
   // Skip middleware for auth, test, and admin routes (admin routes use NextAuth session)
   if (isAuthPage || isApiAuthRoute || isTestRoute || isAdminRoute) {
