@@ -4,6 +4,10 @@
 import { PrismaClient } from '@prisma/client'
 import { ROLES, ROLE_PERMISSIONS } from '../src/lib/rbac'
 import { hashPassword } from '../src/lib/auth'
+import {
+  sendLawFirmCreatedEmail,
+  LawFirmCreatedEmailVariables,
+} from '../src/lib/email'
 
 const prisma = new PrismaClient()
 
@@ -31,7 +35,10 @@ interface ParsedCliParams {
 }
 
 // Type for Prisma transaction client
-type PrismaTransactionClient = Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>
+type PrismaTransactionClient = Omit<
+  PrismaClient,
+  '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'
+>
 
 // Main initialization function
 export async function initializeLawFirm(params: InitializeLawFirmParams) {
@@ -39,118 +46,156 @@ export async function initializeLawFirm(params: InitializeLawFirmParams) {
 
   try {
     // Start transaction
-    const result = await prisma.$transaction(async (tx: PrismaTransactionClient) => {
-      // 1. Create the law firm
-      console.log('🏗️ Creating law firm...')
-      const lawFirm = await tx.lawFirm.create({
-        data: {
-          name: params.name,
-          slug: params.slug,
-          domain: params.domain,
-          plan: params.plan || 'STARTER',
-          isActive: true,
-          settings: {
-            timezone: 'UTC',
-            dateFormat: 'MM/dd/yyyy',
-            currency: 'USD',
-            businessHours: {
-              monday: { start: '09:00', end: '17:00' },
-              tuesday: { start: '09:00', end: '17:00' },
-              wednesday: { start: '09:00', end: '17:00' },
-              thursday: { start: '09:00', end: '17:00' },
-              friday: { start: '09:00', end: '17:00' },
-              saturday: { closed: true },
-              sunday: { closed: true }
-            },
-            features: {
-              clientPortal: true,
-              documentSharing: true,
-              calendarIntegration: true,
-              emailNotifications: true
-            }
-          }
-        }
-      })
-
-      // 2. Create default roles for the law firm
-      console.log('👥 Creating default roles...')
-      const roles = await createDefaultRoles(tx, lawFirm.id)
-
-      // 3. Create platform user (if doesn't exist)
-      console.log('🔐 Creating platform user...')
-      const hashedPassword = await hashPassword(params.ownerPassword)
-
-      let platformUser = await tx.platformUser.findUnique({
-        where: { email: params.ownerEmail }
-      })
-
-      if (!platformUser) {
-        platformUser = await tx.platformUser.create({
+    const result = await prisma.$transaction(
+      async (tx: PrismaTransactionClient) => {
+        // 1. Create the law firm
+        console.log('🏗️ Creating law firm...')
+        const lawFirm = await tx.lawFirm.create({
           data: {
-            email: params.ownerEmail,
-            password: hashedPassword,
-            name: `${params.ownerFirstName} ${params.ownerLastName}`,
-            isActive: true
-          }
+            name: params.name,
+            slug: params.slug,
+            domain: params.domain,
+            plan: params.plan || 'STARTER',
+            isActive: true,
+            settings: {
+              timezone: 'UTC',
+              dateFormat: 'MM/dd/yyyy',
+              currency: 'USD',
+              businessHours: {
+                monday: { start: '09:00', end: '17:00' },
+                tuesday: { start: '09:00', end: '17:00' },
+                wednesday: { start: '09:00', end: '17:00' },
+                thursday: { start: '09:00', end: '17:00' },
+                friday: { start: '09:00', end: '17:00' },
+                saturday: { closed: true },
+                sunday: { closed: true },
+              },
+              features: {
+                clientPortal: true,
+                documentSharing: true,
+                calendarIntegration: true,
+                emailNotifications: true,
+              },
+            },
+          },
         })
-      }
 
-      // 4. Create firm user and assign owner role
-      console.log('👤 Creating owner user...')
-      const user = await tx.user.create({
-        data: {
-          lawFirmId: lawFirm.id,
-          platformUserId: platformUser.id,
-          isActive: true,
-          joinedAt: new Date()
+        // 2. Create default roles for the law firm
+        console.log('👥 Creating default roles...')
+        const roles = await createDefaultRoles(tx, lawFirm.id)
+
+        // 3. Create platform user (if doesn't exist)
+        console.log('🔐 Creating platform user...')
+        const hashedPassword = await hashPassword(params.ownerPassword)
+
+        let platformUser = await tx.platformUser.findUnique({
+          where: { email: params.ownerEmail },
+        })
+
+        if (!platformUser) {
+          platformUser = await tx.platformUser.create({
+            data: {
+              email: params.ownerEmail,
+              password: hashedPassword,
+              name: `${params.ownerFirstName} ${params.ownerLastName}`,
+              isActive: true,
+            },
+          })
         }
-      })
 
-      // 5. Assign owner role to user
-      const ownerRole = roles.find(r => r.name === 'Owner')
-      if (ownerRole) {
-        await tx.userRole.create({
+        // 4. Create firm user and assign owner role
+        console.log('👤 Creating owner user...')
+        const user = await tx.user.create({
           data: {
             lawFirmId: lawFirm.id,
-            userId: user.id,
-            roleId: ownerRole.id,
-            assignedBy: user.id // Self-assigned during setup
-          }
+            platformUserId: platformUser.id,
+            isActive: true,
+            joinedAt: new Date(),
+          },
         })
+
+        // 5. Assign owner role to user
+        const ownerRole = roles.find(r => r.name === 'Owner')
+        if (ownerRole) {
+          await tx.userRole.create({
+            data: {
+              lawFirmId: lawFirm.id,
+              userId: user.id,
+              roleId: ownerRole.id,
+              assignedBy: user.id, // Self-assigned during setup
+            },
+          })
+        }
+
+        // 6. Create default workspace/team structure
+        console.log('🗂️ Creating default workspace...')
+        // Note: This would need workspace table if you add it later
+
+        // 7. Create default case categories
+        console.log('📁 Creating case categories...')
+        // Note: This would need case_categories table from your schema
+
+        // 8. Create default document categories
+        console.log('📄 Creating document categories...')
+        // Note: This would need document_categories table from your schema
+
+        // 9. Create default settings and preferences
+        console.log('⚙️ Setting up default configurations...')
+        // Settings are already included in law firm creation
+
+        return {
+          lawFirm,
+          platformUser,
+          user,
+          roles,
+          ownerRole,
+        }
       }
-
-      // 6. Create default workspace/team structure
-      console.log('🗂️ Creating default workspace...')
-      // Note: This would need workspace table if you add it later
-
-      // 7. Create default case categories
-      console.log('📁 Creating case categories...')
-      // Note: This would need case_categories table from your schema
-
-      // 8. Create default document categories
-      console.log('📄 Creating document categories...')
-      // Note: This would need document_categories table from your schema
-
-      // 9. Create default settings and preferences
-      console.log('⚙️ Setting up default configurations...')
-      // Settings are already included in law firm creation
-
-      return {
-        lawFirm,
-        platformUser,
-        user,
-        roles,
-        ownerRole
-      }
-    })
+    )
 
     console.log('✅ Law firm initialization completed successfully!')
     console.log(`📧 Owner: ${params.ownerEmail}`)
     console.log(`🆔 Law Firm ID: ${result.lawFirm.id}`)
     console.log(`🔗 Slug: ${result.lawFirm.slug}`)
 
-    return result
+    // Send welcome email to the firm owner
+    try {
+      console.log('📧 Sending welcome email to law firm owner...')
 
+      const emailVariables: LawFirmCreatedEmailVariables = {
+        ownerFirstName: params.ownerFirstName,
+        ownerLastName: params.ownerLastName,
+        ownerEmail: params.ownerEmail,
+        firmName: params.name,
+        plan: params.plan || 'STARTER',
+        domain: params.domain,
+        loginUrl:
+          process.env.NEXTAUTH_URL || 'http://localhost:3000/auth/login',
+      }
+
+      const emailResult = await sendLawFirmCreatedEmail(
+        {
+          email: params.ownerEmail,
+          name: `${params.ownerFirstName} ${params.ownerLastName}`,
+        },
+        emailVariables
+      )
+
+      if (emailResult.success) {
+        console.log(
+          `✅ Welcome email sent successfully via ${emailResult.provider}`
+        )
+      } else {
+        console.warn(`⚠️ Failed to send welcome email: ${emailResult.error}`)
+      }
+    } catch (emailError) {
+      console.warn(
+        '⚠️ Email sending failed (but firm creation succeeded):',
+        emailError instanceof Error ? emailError.message : emailError
+      )
+    }
+
+    return result
   } catch (error) {
     console.error('⚠️ Error initializing law firm:', error)
     throw error
@@ -160,44 +205,47 @@ export async function initializeLawFirm(params: InitializeLawFirmParams) {
 }
 
 // Create default roles for a law firm
-async function createDefaultRoles(tx: PrismaTransactionClient, lawFirmId: string) {
+async function createDefaultRoles(
+  tx: PrismaTransactionClient,
+  lawFirmId: string
+) {
   const defaultRoles = [
     {
       name: 'Owner',
       description: 'Law firm owner with full access',
       permissions: ROLE_PERMISSIONS[ROLES.OWNER],
-      isSystem: true
+      isSystem: true,
     },
     {
       name: 'Senior Lawyer',
       description: 'Senior lawyer with management capabilities',
       permissions: ROLE_PERMISSIONS[ROLES.SENIOR_LAWYER],
-      isSystem: true
+      isSystem: true,
     },
     {
       name: 'Junior Lawyer',
       description: 'Junior lawyer with basic case access',
       permissions: ROLE_PERMISSIONS[ROLES.JUNIOR_LAWYER],
-      isSystem: true
+      isSystem: true,
     },
     {
       name: 'Assistant',
       description: 'Legal assistant with administrative access',
       permissions: ROLE_PERMISSIONS[ROLES.ASSISTANT],
-      isSystem: true
+      isSystem: true,
     },
     {
       name: 'Secretary',
       description: 'Secretary with basic administrative access',
       permissions: ROLE_PERMISSIONS[ROLES.SECRETARY],
-      isSystem: true
+      isSystem: true,
     },
     {
       name: 'Client',
       description: 'Client with limited read-only access',
       permissions: ROLE_PERMISSIONS[ROLES.CLIENT],
-      isSystem: true
-    }
+      isSystem: true,
+    },
   ]
 
   const createdRoles = []
@@ -208,8 +256,8 @@ async function createDefaultRoles(tx: PrismaTransactionClient, lawFirmId: string
         name: roleData.name,
         description: roleData.description,
         permissions: roleData.permissions,
-        isSystem: roleData.isSystem
-      }
+        isSystem: roleData.isSystem,
+      },
     })
     createdRoles.push(role)
     console.log(`  ✅ Created role: ${roleData.name}`)
@@ -273,18 +321,32 @@ Example:
   // Validate slug format (URL-safe)
   const slugRegex = /^[a-z0-9-]+$/
   if (!params.slug || !slugRegex.test(params.slug)) {
-    console.error('⚠️ Invalid slug format. Use lowercase letters, numbers, and hyphens only.')
+    console.error(
+      '⚠️ Invalid slug format. Use lowercase letters, numbers, and hyphens only.'
+    )
     process.exit(1)
   }
 
   // Validate plan if provided
-  if (params.plan && !['STARTER', 'PROFESSIONAL', 'ENTERPRISE'].includes(params.plan)) {
-    console.error('⚠️ Invalid plan. Must be STARTER, PROFESSIONAL, or ENTERPRISE')
+  if (
+    params.plan &&
+    !['STARTER', 'PROFESSIONAL', 'ENTERPRISE'].includes(params.plan)
+  ) {
+    console.error(
+      '⚠️ Invalid plan. Must be STARTER, PROFESSIONAL, or ENTERPRISE'
+    )
     process.exit(1)
   }
 
   // Type guard to ensure all required fields exist
-  if (!params.name || !params.slug || !params.email || !params.password || !params.first || !params.last) {
+  if (
+    !params.name ||
+    !params.slug ||
+    !params.email ||
+    !params.password ||
+    !params.first ||
+    !params.last
+  ) {
     console.error('⚠️ Required parameters are missing')
     process.exit(1)
   }
@@ -294,11 +356,15 @@ Example:
       name: params.name,
       slug: params.slug,
       domain: params.domain,
-      plan: params.plan as 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE' | undefined,
+      plan: params.plan as
+        | 'STARTER'
+        | 'PROFESSIONAL'
+        | 'ENTERPRISE'
+        | undefined,
       ownerEmail: params.email,
       ownerPassword: params.password,
       ownerFirstName: params.first,
-      ownerLastName: params.last
+      ownerLastName: params.last,
     })
   } catch (error) {
     console.error('⚠️ Failed to initialize law firm:', error)

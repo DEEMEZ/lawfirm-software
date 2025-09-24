@@ -1,55 +1,68 @@
-// Email Service Provider (Resend) Wiring
-// Purpose: Send transactional emails with templates and error logging
+// Email Service Library
+// Purpose: Send transactional emails via Resend or Nodemailer with template support
 
-// Types for Resend API
-interface ResendEmailData {
-  from: string
-  to: string[]
-  subject: string
-  html: string
-  text?: string
-  reply_to?: string[]
-  cc?: string[]
-  bcc?: string[]
-  tags?: { name: string; value: string }[]
-  headers?: Record<string, string>
-}
+import * as nodemailer from 'nodemailer'
+import { env } from './env'
 
+// Email provider types
+type EmailProvider = 'resend' | 'nodemailer'
+
+// Resend API types and interfaces
 interface ResendResponse {
   data?: { id: string }
   error?: { message: string }
 }
 
-interface ResendEmailsAPI {
-  send: (data: ResendEmailData) => Promise<ResendResponse>
+interface ResendEmailData {
+  from: string
+  to: string[]
+  subject: string
+  html?: string
+  text?: string
+  reply_to?: string[]
+  cc?: string[]
+  bcc?: string[]
+  tags?: Record<string, string>
+  headers?: Record<string, string>
 }
 
 interface ResendClient {
-  emails: ResendEmailsAPI
+  emails: {
+    send: (data: ResendEmailData) => Promise<ResendResponse>
+  }
 }
 
-// Dynamic import for Resend to handle missing dependency gracefully
-let ResendClass: new (apiKey: string) => ResendClient
+// Dynamically import Resend to avoid build errors when not available
+let ResendClass: new (apiKey?: string) => ResendClient
+let resendClient: ResendClient | null = null
 
 try {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const resendModule = require('resend')
   ResendClass = resendModule.Resend
-} catch {
-  console.warn('Resend not available - email functionality disabled')
-  // Mock implementation for when Resend is not available
-  ResendClass = class MockResend implements ResendClient {
-    emails = {
-      send: (): Promise<ResendResponse> =>
-        Promise.resolve({ data: { id: 'mock' } }),
-    }
+  if (env.RESEND_API_KEY) {
+    resendClient = new ResendClass(env.RESEND_API_KEY)
   }
+} catch {
+  console.warn('Resend not available - using Nodemailer fallback')
 }
 
-import { env } from './env'
+// Nodemailer transporter
+let nodemailerTransporter: nodemailer.Transporter | null = null
 
-// Initialize Resend client
-const resend = new ResendClass(env.RESEND_API_KEY)
+if (env.EMAIL_SERVICE && env.EMAIL_USERNAME && env.EMAIL_PASSWORD) {
+  try {
+    nodemailerTransporter = nodemailer.createTransport({
+      service: env.EMAIL_SERVICE,
+      auth: {
+        user: env.EMAIL_USERNAME,
+        pass: env.EMAIL_PASSWORD,
+      },
+    })
+  } catch (error) {
+    console.error('Failed to initialize Nodemailer:', error)
+  }
+}
 
 // Email configuration types
 export interface EmailTemplate {
@@ -65,14 +78,14 @@ export interface EmailAddress {
 
 export interface EmailOptions {
   to: EmailAddress | EmailAddress[]
-  from?: EmailAddress
   subject: string
-  html: string
+  html?: string
   text?: string
+  from?: EmailAddress
   replyTo?: EmailAddress
   cc?: EmailAddress[]
   bcc?: EmailAddress[]
-  tags?: { name: string; value: string }[]
+  tags?: Record<string, string>
   headers?: Record<string, string>
 }
 
@@ -80,6 +93,7 @@ export interface EmailResult {
   id: string
   success: boolean
   error?: string
+  provider: EmailProvider
 }
 
 // Template variable types for better type safety
@@ -89,19 +103,16 @@ export type TemplateVariables = Record<
 >
 
 // Default sender configuration
-const DEFAULT_FROM = {
-  email: env.FROM_EMAIL || 'noreply@example.com',
-  name: env.FROM_NAME || 'Law Firm Platform',
-}
+const getDefaultFrom = (): EmailAddress => ({
+  email: env.EMAIL_FROM || env.FROM_EMAIL,
+  name: env.FROM_NAME,
+})
 
 // Email service class
 export class EmailService {
   private static instance: EmailService
-  private resend: ResendClient
 
-  private constructor() {
-    this.resend = resend
-  }
+  private constructor() {}
 
   public static getInstance(): EmailService {
     if (!EmailService.instance) {
@@ -110,70 +121,158 @@ export class EmailService {
     return EmailService.instance
   }
 
-  // Send email with error handling and logging
+  // Determine which provider to use
+  private getProvider(): EmailProvider {
+    if (resendClient) return 'resend'
+    if (nodemailerTransporter) return 'nodemailer'
+    throw new Error('No email provider configured')
+  }
+
+  // Send email using the configured provider
   async sendEmail(options: EmailOptions): Promise<EmailResult> {
     try {
-      // Validate required fields
-      if (!options.to || !options.subject || (!options.html && !options.text)) {
-        throw new Error('Missing required email fields')
-      }
+      const provider = this.getProvider()
 
-      // Prepare email data
-      const emailData: ResendEmailData = {
-        from: options.from
-          ? `${options.from.name} <${options.from.email}>`
-          : `${DEFAULT_FROM.name} <${DEFAULT_FROM.email}>`,
-        to: Array.isArray(options.to)
-          ? options.to.map(addr =>
-              addr.name ? `${addr.name} <${addr.email}>` : addr.email
-            )
-          : [
-              options.to.name
-                ? `${options.to.name} <${options.to.email}>`
-                : options.to.email,
-            ],
-        subject: options.subject,
-        html: options.html,
-        text: options.text,
-        reply_to: options.replyTo
-          ? [
-              options.replyTo.name
-                ? `${options.replyTo.name} <${options.replyTo.email}>`
-                : options.replyTo.email,
-            ]
-          : undefined,
-        cc: options.cc?.map(addr =>
-          addr.name ? `${addr.name} <${addr.email}>` : addr.email
-        ),
-        bcc: options.bcc?.map(addr =>
-          addr.name ? `${addr.name} <${addr.email}>` : addr.email
-        ),
-        tags: options.tags,
-        headers: options.headers,
-      }
-
-      // Send email via Resend
-      const response = await this.resend.emails.send(emailData)
-
-      if (response.error) {
-        throw new Error(response.error.message)
-      }
-
-      // Log successful send
-      console.log(`Email sent successfully: ${response.data?.id}`)
-
-      return {
-        id: response.data?.id || 'unknown',
-        success: true,
+      if (provider === 'resend') {
+        return await this.sendWithResend(options)
+      } else {
+        return await this.sendWithNodemailer(options)
       }
     } catch (error) {
       console.error('Email send failed:', error)
-
       return {
         id: 'failed',
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
+        provider: 'unknown' as EmailProvider,
       }
+    }
+  }
+
+  // Send email via Resend
+  private async sendWithResend(options: EmailOptions): Promise<EmailResult> {
+    if (!resendClient) {
+      throw new Error('Resend client not initialized')
+    }
+
+    // Validate required fields
+    if (!options.to || !options.subject || (!options.html && !options.text)) {
+      throw new Error('Missing required email fields')
+    }
+
+    // Prepare email data
+    const emailData: ResendEmailData = {
+      from: options.from
+        ? `${options.from.name} <${options.from.email}>`
+        : `${getDefaultFrom().name} <${getDefaultFrom().email}>`,
+      to: Array.isArray(options.to)
+        ? options.to.map(addr =>
+            addr.name ? `${addr.name} <${addr.email}>` : addr.email
+          )
+        : [
+            options.to.name
+              ? `${options.to.name} <${options.to.email}>`
+              : options.to.email,
+          ],
+      subject: options.subject,
+      html: options.html,
+      text: options.text,
+      reply_to: options.replyTo
+        ? [
+            options.replyTo.name
+              ? `${options.replyTo.name} <${options.replyTo.email}>`
+              : options.replyTo.email,
+          ]
+        : undefined,
+      cc: options.cc?.map(addr =>
+        addr.name ? `${addr.name} <${addr.email}>` : addr.email
+      ),
+      bcc: options.bcc?.map(addr =>
+        addr.name ? `${addr.name} <${addr.email}>` : addr.email
+      ),
+      tags: options.tags,
+      headers: options.headers,
+    }
+
+    // Send email via Resend
+    const response = await resendClient.emails.send(emailData)
+
+    if (response.error) {
+      throw new Error(response.error.message)
+    }
+
+    console.log(`Email sent via Resend: ${response.data?.id}`)
+
+    return {
+      id: response.data?.id || 'unknown',
+      success: true,
+      provider: 'resend',
+    }
+  }
+
+  // Send email via Nodemailer
+  private async sendWithNodemailer(
+    options: EmailOptions
+  ): Promise<EmailResult> {
+    if (!nodemailerTransporter) {
+      throw new Error('Nodemailer transporter not initialized')
+    }
+
+    // Validate required fields
+    if (!options.to || !options.subject || (!options.html && !options.text)) {
+      throw new Error('Missing required email fields')
+    }
+
+    const defaultFrom = getDefaultFrom()
+
+    // Prepare email data for Nodemailer
+    const emailData = {
+      from: options.from
+        ? options.from.name
+          ? `"${options.from.name}" <${options.from.email}>`
+          : options.from.email
+        : defaultFrom.name
+          ? `"${defaultFrom.name}" <${defaultFrom.email}>`
+          : defaultFrom.email,
+      to: Array.isArray(options.to)
+        ? options.to
+            .map(addr =>
+              addr.name ? `"${addr.name}" <${addr.email}>` : addr.email
+            )
+            .join(', ')
+        : options.to.name
+          ? `"${options.to.name}" <${options.to.email}>`
+          : options.to.email,
+      subject: options.subject,
+      html: options.html,
+      text: options.text,
+      replyTo: options.replyTo
+        ? options.replyTo.name
+          ? `"${options.replyTo.name}" <${options.replyTo.email}>`
+          : options.replyTo.email
+        : undefined,
+      cc: options.cc
+        ?.map(addr =>
+          addr.name ? `"${addr.name}" <${addr.email}>` : addr.email
+        )
+        .join(', '),
+      bcc: options.bcc
+        ?.map(addr =>
+          addr.name ? `"${addr.name}" <${addr.email}>` : addr.email
+        )
+        .join(', '),
+      headers: options.headers,
+    }
+
+    // Send email via Nodemailer
+    const result = await nodemailerTransporter.sendMail(emailData)
+
+    console.log(`Email sent via Nodemailer: ${result.messageId}`)
+
+    return {
+      id: result.messageId,
+      success: true,
+      provider: 'nodemailer',
     }
   }
 
@@ -200,6 +299,7 @@ export class EmailService {
         id: 'failed',
         success: false,
         error: error instanceof Error ? error.message : 'Template error',
+        provider: 'unknown' as EmailProvider,
       }
     }
   }
@@ -240,8 +340,13 @@ export class EmailService {
   }
 
   // Test email configuration
-  async testConfiguration(): Promise<{ success: boolean; error?: string }> {
+  async testConfiguration(): Promise<{
+    success: boolean
+    error?: string
+    provider: EmailProvider
+  }> {
     try {
+      const provider = this.getProvider()
       const testResult = await this.sendEmail({
         to: { email: 'test@example.com', name: 'Test User' },
         subject: 'Test Email Configuration',
@@ -252,12 +357,14 @@ export class EmailService {
       return {
         success: testResult.success,
         error: testResult.error,
+        provider,
       }
     } catch (error) {
       return {
         success: false,
         error:
           error instanceof Error ? error.message : 'Configuration test failed',
+        provider: 'unknown' as EmailProvider,
       }
     }
   }
@@ -267,32 +374,34 @@ export class EmailService {
 function getEmailTemplates(): Record<string, EmailTemplate> {
   return {
     welcome: {
-      subject: 'Welcome to {{firmName}}',
+      subject: 'Welcome to {{firmName}} Law Management System',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h1 style="color: #1f2937;">Welcome to {{firmName}}</h1>
+          <h1 style="color: #1f2937;">Welcome to {{firmName}}!</h1>
           <p>Hello {{userName}},</p>
-          <p>Welcome to our law firm platform! Your account has been created and you can now access the system.</p>
-          <p><strong>Your login details:</strong></p>
-          <ul>
-            <li>Email: {{userEmail}}</li>
-            <li>Role: {{userRole}}</li>
-          </ul>
+          <p>Your account has been created successfully. You can now access the law management system.</p>
+          <div style="background-color: #f3f4f6; padding: 16px; border-radius: 8px; margin: 16px 0;">
+            <h3 style="margin-top: 0; color: #374151;">Your login details:</h3>
+            <p><strong>Email:</strong> {{userEmail}}</p>
+            <p><strong>Role:</strong> {{userRole}}</p>
+          </div>
           <p>
             <a href="{{loginUrl}}" style="background-color: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">
-              Login to Platform
+              Login Now
             </a>
           </p>
           <p>If you have any questions, please contact your administrator.</p>
-          <hr style="margin: 20px 0;">
-          <p style="color: #6b7280; font-size: 14px;">This email was sent from {{firmName}} Law Management Platform.</p>
+          <hr style="margin: 24px 0; border: none; border-top: 1px solid #e5e7eb;">
+          <p style="color: #6b7280; font-size: 14px;">
+            This email was sent from {{firmName}} Law Management Platform.
+          </p>
         </div>
       `,
-      text: `Welcome to {{firmName}}
+      text: `Welcome to {{firmName}} Law Management System!
 
 Hello {{userName}},
 
-Welcome to our law firm platform! Your account has been created and you can now access the system.
+Your account has been created successfully. You can now access the law management system.
 
 Your login details:
 - Email: {{userEmail}}
@@ -305,19 +414,83 @@ If you have any questions, please contact your administrator.
 This email was sent from {{firmName}} Law Management Platform.`,
     },
 
+    law_firm_created: {
+      subject: 'Your Law Firm Account Has Been Created',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #059669;">🏛️ Law Firm Account Created</h1>
+          <p>Hello {{ownerFirstName}} {{ownerLastName}},</p>
+          <p>Your law firm account has been successfully created by the platform administrator.</p>
+
+          <div style="background-color: #f0f9ff; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #3b82f6;">
+            <h3 style="margin-top: 0; color: #1e40af;">Firm Details:</h3>
+            <p><strong>Firm Name:</strong> {{firmName}}</p>
+            <p><strong>Plan:</strong> {{plan}}</p>
+            {{#domain}}<p><strong>Domain:</strong> {{domain}}</p>{{/domain}}
+          </div>
+
+          <div style="background-color: #fef3c7; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
+            <h3 style="margin-top: 0; color: #92400e;">Your Owner Account:</h3>
+            <p><strong>Email:</strong> {{ownerEmail}}</p>
+            <p><strong>Role:</strong> Firm Owner</p>
+            <p style="font-size: 14px; color: #92400e;">
+              <strong>Important:</strong> Please change your password after first login.
+            </p>
+          </div>
+
+          <p>
+            <a href="{{loginUrl}}" style="background-color: #059669; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">
+              Login to Your Account
+            </a>
+          </p>
+
+          <p>Welcome to the platform! You can now start managing your law firm.</p>
+
+          <hr style="margin: 24px 0; border: none; border-top: 1px solid #e5e7eb;">
+          <p style="color: #6b7280; font-size: 14px;">
+            This email was sent from the Law Firm Management Platform.
+          </p>
+        </div>
+      `,
+      text: `Your Law Firm Account Has Been Created
+
+Hello {{ownerFirstName}} {{ownerLastName}},
+
+Your law firm account has been successfully created by the platform administrator.
+
+Firm Details:
+- Name: {{firmName}}
+- Plan: {{plan}}
+{{#domain}}
+- Domain: {{domain}}
+{{/domain}}
+
+Your Owner Account:
+- Email: {{ownerEmail}}
+- Role: Firm Owner
+
+IMPORTANT: Please change your password after first login.
+
+Login URL: {{loginUrl}}
+
+Welcome to the platform! You can now start managing your law firm.
+
+This email was sent from the Law Firm Management Platform.`,
+    },
+
     court_reminder: {
       subject: 'Court Date Reminder: {{caseTitle}}',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h1 style="color: #dc2626;">⚖️ Court Date Reminder</h1>
           <p>Hello {{lawyerName}},</p>
-          <p>This is a reminder for your upcoming court date:</p>
-          <div style="background-color: #fef2f2; border: 1px solid #fecaca; padding: 16px; border-radius: 6px; margin: 16px 0;">
-            <h3 style="margin: 0 0 8px 0; color: #dc2626;">{{caseTitle}}</h3>
-            <p style="margin: 4px 0;"><strong>Date:</strong> {{courtDate}}</p>
-            <p style="margin: 4px 0;"><strong>Time:</strong> {{courtTime}}</p>
-            <p style="margin: 4px 0;"><strong>Court:</strong> {{courtName}}</p>
-            <p style="margin: 4px 0;"><strong>Judge:</strong> {{judgeName}}</p>
+          <p>This is a reminder about your upcoming court date:</p>
+          <div style="background-color: #fef2f2; padding: 16px; border-radius: 8px; margin: 16px 0; border-left: 4px solid #dc2626;">
+            <h3 style="margin-top: 0; color: #991b1b;">{{caseTitle}}</h3>
+            <p><strong>Date:</strong> {{courtDate}}</p>
+            <p><strong>Time:</strong> {{courtTime}}</p>
+            <p><strong>Court:</strong> {{courtName}}</p>
+            <p><strong>Judge:</strong> {{judgeName}}</p>
           </div>
           <p>
             <a href="{{caseUrl}}" style="background-color: #dc2626; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">
@@ -325,15 +498,13 @@ This email was sent from {{firmName}} Law Management Platform.`,
             </a>
           </p>
           <p>Please ensure you are prepared for this hearing.</p>
-          <hr style="margin: 20px 0;">
-          <p style="color: #6b7280; font-size: 14px;">This reminder was sent from {{firmName}} Law Management Platform.</p>
         </div>
       `,
       text: `Court Date Reminder: {{caseTitle}}
 
 Hello {{lawyerName}},
 
-This is a reminder for your upcoming court date:
+This is a reminder about your upcoming court date:
 
 Case: {{caseTitle}}
 Date: {{courtDate}}
@@ -360,10 +531,10 @@ This reminder was sent from {{firmName}} Law Management Platform.`,
               Reset Password
             </a>
           </p>
-          <p>This link will expire in 1 hour for security reasons.</p>
+          <p style="color: #6b7280; font-size: 14px;">
+            This link will expire in 1 hour for security reasons.
+          </p>
           <p>If you didn't request this password reset, please ignore this email.</p>
-          <hr style="margin: 20px 0;">
-          <p style="color: #6b7280; font-size: 14px;">This email was sent from {{firmName}} Law Management Platform.</p>
         </div>
       `,
       text: `Password Reset Request
@@ -388,20 +559,18 @@ This email was sent from {{firmName}} Law Management Platform.`,
           <h1 style="color: #059669;">📋 New Task Assignment</h1>
           <p>Hello {{assigneeName}},</p>
           <p>You have been assigned a new task:</p>
-          <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; padding: 16px; border-radius: 6px; margin: 16px 0;">
-            <h3 style="margin: 0 0 8px 0; color: #059669;">{{taskTitle}}</h3>
-            <p style="margin: 4px 0;">{{taskDescription}}</p>
-            <p style="margin: 4px 0;"><strong>Due Date:</strong> {{dueDate}}</p>
-            <p style="margin: 4px 0;"><strong>Priority:</strong> {{priority}}</p>
-            <p style="margin: 4px 0;"><strong>Assigned by:</strong> {{assignerName}}</p>
+          <div style="background-color: #f0fdf4; padding: 16px; border-radius: 8px; margin: 16px 0; border-left: 4px solid #059669;">
+            <h3 style="margin-top: 0; color: #047857;">{{taskTitle}}</h3>
+            <p><strong>Description:</strong> {{taskDescription}}</p>
+            <p><strong>Due Date:</strong> {{dueDate}}</p>
+            <p><strong>Priority:</strong> {{priority}}</p>
+            <p><strong>Assigned by:</strong> {{assignerName}}</p>
           </div>
           <p>
             <a href="{{taskUrl}}" style="background-color: #059669; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">
               View Task
             </a>
           </p>
-          <hr style="margin: 20px 0;">
-          <p style="color: #6b7280; font-size: 14px;">This notification was sent from {{firmName}} Law Management Platform.</p>
         </div>
       `,
       text: `New Task Assignment: {{taskTitle}}
@@ -428,10 +597,20 @@ export const emailService = EmailService.getInstance()
 
 // Specific template variable types for better type safety
 export interface WelcomeEmailVariables extends TemplateVariables {
-  firmName: string
   userName: string
   userEmail: string
   userRole: string
+  firmName: string
+  loginUrl: string
+}
+
+export interface LawFirmCreatedEmailVariables extends TemplateVariables {
+  ownerFirstName: string
+  ownerLastName: string
+  ownerEmail: string
+  firmName: string
+  plan: string
+  domain?: string
   loginUrl: string
 }
 
@@ -463,12 +642,19 @@ export interface TaskAssignmentVariables extends TemplateVariables {
   firmName: string
 }
 
-// Quick send functions with proper typing
+// Template-specific functions
 export async function sendWelcomeEmail(
   to: EmailAddress,
   variables: WelcomeEmailVariables
 ): Promise<EmailResult> {
   return emailService.sendTemplate('welcome', to, variables)
+}
+
+export async function sendLawFirmCreatedEmail(
+  to: EmailAddress,
+  variables: LawFirmCreatedEmailVariables
+): Promise<EmailResult> {
+  return emailService.sendTemplate('law_firm_created', to, variables)
 }
 
 export async function sendCourtReminder(
