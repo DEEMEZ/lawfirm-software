@@ -18,6 +18,8 @@ export const authOptions: NextAuthOptions = {
         }
 
         try {
+          console.log('🔍 NextAuth: Attempting login for:', credentials.email)
+
           // Find platform user
           const platformUser = await prisma.platformUser.findUnique({
             where: { email: credentials.email },
@@ -35,17 +37,24 @@ export const authOptions: NextAuthOptions = {
             },
           })
 
+          console.log('👤 NextAuth: Platform user found:', !!platformUser)
+
           if (!platformUser || !platformUser.isActive) {
+            console.log('❌ NextAuth: User not found or inactive')
             return null
           }
 
           // Verify password
+          console.log('🔐 NextAuth: Verifying password...')
           const isValidPassword = await verifyPassword(
             credentials.password,
             platformUser.password
           )
 
+          console.log('🔐 NextAuth: Password valid:', isValidPassword)
+
           if (!isValidPassword) {
+            console.log('❌ NextAuth: Invalid password')
             return null
           }
 
@@ -101,14 +110,15 @@ export const authOptions: NextAuthOptions = {
             role: string
           }
         } catch (error) {
-          console.error('❌ Auth error:', error)
+          console.error('💥 NextAuth error:', error)
           if (error instanceof Error) {
-            console.error('❌ Error details:', {
+            console.error('💥 Error details:', {
               name: error.name,
               message: error.message,
               stack: error.stack,
             })
           }
+          // Return null instead of throwing to avoid 500 error
           return null
         }
       },

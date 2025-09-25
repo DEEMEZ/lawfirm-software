@@ -110,6 +110,38 @@ export default function FirmsManagement() {
     }
   }
 
+  const deleteFirm = async (firmId: string, firmName: string) => {
+    // Confirmation dialog
+    const confirmed = window.confirm(
+      `Are you sure you want to permanently delete "${firmName}"?\n\n` +
+        'This will delete:\n' +
+        '• All users and their data\n' +
+        '• All cases and documents\n' +
+        '• All roles and permissions\n\n' +
+        'This action CANNOT be undone!'
+    )
+
+    if (!confirmed) return
+
+    try {
+      const response = await fetch(`/api/admin/firms/${firmId}?action=delete`, {
+        method: 'DELETE',
+        credentials: 'include',
+      })
+
+      if (response.ok) {
+        fetchFirms()
+        alert('Law firm deleted successfully')
+      } else {
+        const error = await response.json()
+        alert(`Error: ${error.error}`)
+      }
+    } catch (error) {
+      console.error('Error deleting firm:', error)
+      alert('Failed to delete law firm')
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -235,6 +267,12 @@ export default function FirmsManagement() {
                     >
                       {firm.isActive ? 'Suspend' : 'Activate'}
                     </button>
+                    <button
+                      onClick={() => deleteFirm(firm.id, firm.name)}
+                      className="text-red-700 hover:text-red-900 font-medium"
+                    >
+                      Delete
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -335,7 +373,7 @@ function CreateFirmModal({
             <input
               type="text"
               required
-              pattern="^[a-z0-9-]+$"
+              pattern="^[a-z0-9\-]+$"
               value={formData.slug}
               onChange={e =>
                 setFormData(prev => ({ ...prev, slug: e.target.value }))

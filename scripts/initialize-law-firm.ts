@@ -1,15 +1,13 @@
 // Law Firm Initialization Script
 // Purpose: One-click firm setup with default workspace, roles, settings, and categories
 
-import { PrismaClient } from '@prisma/client'
 import { ROLES, ROLE_PERMISSIONS } from '../src/lib/rbac'
 import { hashPassword } from '../src/lib/auth'
 import {
   sendLawFirmCreatedEmail,
   LawFirmCreatedEmailVariables,
 } from '../src/lib/email'
-
-const prisma = new PrismaClient()
+import { prisma } from '../src/lib/prisma'
 
 interface InitializeLawFirmParams {
   name: string
@@ -35,10 +33,9 @@ interface ParsedCliParams {
 }
 
 // Type for Prisma transaction client
-type PrismaTransactionClient = Omit<
-  PrismaClient,
-  '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'
->
+type PrismaTransactionClient = Parameters<
+  Parameters<typeof prisma.$transaction>[0]
+>[0]
 
 // Main initialization function
 export async function initializeLawFirm(params: InitializeLawFirmParams) {
@@ -166,6 +163,7 @@ export async function initializeLawFirm(params: InitializeLawFirmParams) {
         ownerFirstName: params.ownerFirstName,
         ownerLastName: params.ownerLastName,
         ownerEmail: params.ownerEmail,
+        ownerPassword: params.ownerPassword,
         firmName: params.name,
         plan: params.plan || 'STARTER',
         domain: params.domain,
@@ -199,8 +197,6 @@ export async function initializeLawFirm(params: InitializeLawFirmParams) {
   } catch (error) {
     console.error('⚠️ Error initializing law firm:', error)
     throw error
-  } finally {
-    await prisma.$disconnect()
   }
 }
 

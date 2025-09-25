@@ -96,13 +96,21 @@ export async function getPlatformUserContext(
         id: platformUserId,
         isActive: true,
       },
+      include: {
+        users: true, // Include associated law firm users
+      },
     })
 
     if (!platformUser) {
       return null
     }
 
-    // Platform users have super admin role
+    // Only return super admin context if user has NO law firm associations
+    if (platformUser.users.length > 0) {
+      return null // This user is associated with law firms, not a super admin
+    }
+
+    // Platform users with no law firm associations have super admin role
     return {
       id: platformUser.id,
       lawFirmId: '', // Platform users don't belong to a specific law firm

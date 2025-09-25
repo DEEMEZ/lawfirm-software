@@ -155,15 +155,34 @@ export const POST = withRole(
       }
 
       // Check if slug or domain already exists
+      const whereConditions = [{ slug }]
+
+      // Only add domain check if domain is provided and not empty
+      if (domain && domain.trim()) {
+        whereConditions.push({ domain: domain.trim() })
+      }
+
       const existing = await prisma.lawFirm.findFirst({
         where: {
-          OR: [{ slug }, ...(domain ? [{ domain }] : [])],
+          OR: whereConditions,
         },
       })
 
       if (existing) {
+        const conflictType = existing.slug === slug ? 'slug' : 'domain'
+        const conflictValue =
+          existing.slug === slug ? existing.slug : existing.domain
+
+        console.log(
+          `Conflict detected: ${conflictType} '${conflictValue}' already exists for law firm: ${existing.name}`
+        )
+
         return NextResponse.json(
-          { error: 'Slug or domain already exists' },
+          {
+            error: `The ${conflictType} '${conflictValue}' is already in use by another law firm`,
+            conflictType,
+            conflictValue,
+          },
           { status: 409 }
         )
       }

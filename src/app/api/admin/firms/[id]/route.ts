@@ -140,25 +140,98 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   })(request)
 }
 
-// DELETE /api/admin/firms/[id] - Suspend/deactivate law firm
+// DELETE /api/admin/firms/[id] - Delete or suspend law firm
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   return withRole(ROLES.SUPER_ADMIN, async () => {
     try {
       const { id } = await params
-      // Don't actually delete, just deactivate
-      const firm = await prisma.lawFirm.update({
-        where: { id },
-        data: { isActive: false },
-      })
+      const { searchParams } = new URL(request.url)
+      const action = searchParams.get('action') // 'suspend' or 'delete'
 
-      return NextResponse.json({
-        message: 'Law firm suspended successfully',
-        lawFirm: firm,
-      })
+      if (action === 'delete') {
+        // Permanent deletion - delete all related data in transaction
+        await prisma.$transaction(async tx => {
+          // First get all platform user IDs associated with this law firm
+          const firmUsers = await tx.user.findMany({
+            where: { lawFirmId: id },
+            select: { platformUserId: true },
+          })
+          const platformUserIds = firmUsers.map(u => u.platformUserId)
+
+          // Delete user roles first
+          await tx.userRole.deleteMany({
+            where: { lawFirmId: id },
+          })
+
+          // Delete users
+          await tx.user.deleteMany({
+            where: { lawFirmId: id },
+          })
+
+          // Delete associated platform users (but not super admin)
+          if (platformUserIds.length > 0) {
+            await tx.platformUser.deleteMany({
+              where: {
+                id: { in: platformUserIds },
+                // Don't delete super admin or users without email ending in common domains
+                email: { not: 'superadmin@lawfirm.com' },
+              },
+            })
+          }
+
+          // Delete roles
+          await tx.role.deleteMany({
+            where: { lawFirmId: id },
+          })
+
+          // Delete cases and related data
+          const cases = await tx.case.findMany({
+            where: { lawFirmId: id },
+            select: { id: true },
+          })
+
+          for (const case_ of cases) {
+            // Delete case assignments
+            await tx.caseAssignment.deleteMany({
+              where: { caseId: case_.id },
+            })
+          }
+
+          // Delete cases
+          await tx.case.deleteMany({
+            where: { lawFirmId: id },
+          })
+
+          // Delete documents
+          await tx.document.deleteMany({
+            where: { lawFirmId: id },
+          })
+
+          // Finally delete the law firm
+          await tx.lawFirm.delete({
+            where: { id },
+          })
+        })
+
+        return NextResponse.json({
+          message: 'Law firm permanently deleted successfully',
+        })
+      } else {
+        // Default: just deactivate
+        const firm = await prisma.lawFirm.update({
+          where: { id },
+          data: { isActive: false },
+        })
+
+        return NextResponse.json({
+          message: 'Law firm suspended successfully',
+          lawFirm: firm,
+        })
+      }
     } catch (error) {
-      console.error('Error suspending law firm:', error)
+      console.error('Error deleting/suspending law firm:', error)
       return NextResponse.json(
-        { error: 'Failed to suspend law firm' },
+        { error: 'Failed to delete/suspend law firm' },
         { status: 500 }
       )
     }

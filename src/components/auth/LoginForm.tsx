@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 
 export default function LoginForm() {
   const [email, setEmail] = useState('')
@@ -14,37 +13,64 @@ export default function LoginForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    e.stopPropagation()
     setLoading(true)
     setError('')
 
+    // Use alert to see logs since console clears
+    console.log('🚀 Login form submitted')
+
     try {
+      console.log('📞 Calling signIn...')
+
       const result = await signIn('credentials', {
         email,
         password,
         redirect: false,
       })
 
+      console.log('🔍 SignIn result:', result)
+
       if (result?.ok) {
-        // Get user session to determine redirect
-        const response = await fetch('/api/auth/me')
-        if (response.ok) {
-          const userData = await response.json()
-          if (userData.role === 'super_admin') {
-            router.push('/admin')
-          } else {
-            router.push('/dashboard')
-          }
-        } else {
-          router.push('/')
+        console.log('✅ Login successful! Redirecting...')
+
+        const redirectPath =
+          email === 'superadmin@lawfirm.com' ? '/admin' : '/dashboard'
+        console.log('🔄 Attempting redirect to:', redirectPath)
+
+        // Try multiple redirect methods simultaneously
+        try {
+          window.location.href = redirectPath
+          window.location.assign(redirectPath)
+          window.location.replace(redirectPath)
+
+          // Also try using router as backup
+          setTimeout(() => {
+            router.push(redirectPath)
+            router.replace(redirectPath)
+          }, 100)
+
+          // Force redirect with document.location as last resort
+          setTimeout(() => {
+            document.location.href = redirectPath
+          }, 500)
+        } catch (error) {
+          console.error('Redirect failed:', error)
+          // Manual navigation if all else fails
+          window.open(redirectPath, '_self')
         }
+        return
       } else {
+        console.log('❌ Login failed:', result?.error)
         setError('Invalid credentials')
       }
-    } catch {
+    } catch (error) {
+      console.error('💥 Login error:', error)
+      alert('💥 Login error: ' + error)
       setError('Network error occurred')
-    } finally {
-      setLoading(false)
     }
+
+    setLoading(false)
   }
 
   return (
@@ -95,15 +121,6 @@ export default function LoginForm() {
             >
               {loading ? 'Signing in...' : 'Sign in'}
             </button>
-          </div>
-
-          <div className="text-center">
-            <Link
-              href="/auth/signup"
-              className="font-medium text-indigo-600 hover:text-indigo-500"
-            >
-              Don&apos;t have an account? Sign up
-            </Link>
           </div>
         </form>
       </div>

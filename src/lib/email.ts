@@ -52,6 +52,9 @@ let nodemailerTransporter: nodemailer.Transporter | null = null
 
 if (env.EMAIL_SERVICE && env.EMAIL_USERNAME && env.EMAIL_PASSWORD) {
   try {
+    console.log(
+      `Initializing Nodemailer with service: ${env.EMAIL_SERVICE}, username: ${env.EMAIL_USERNAME}`
+    )
     nodemailerTransporter = nodemailer.createTransport({
       service: env.EMAIL_SERVICE,
       auth: {
@@ -59,9 +62,19 @@ if (env.EMAIL_SERVICE && env.EMAIL_USERNAME && env.EMAIL_PASSWORD) {
         pass: env.EMAIL_PASSWORD,
       },
     })
+    console.log('✅ Nodemailer transporter initialized successfully')
   } catch (error) {
-    console.error('Failed to initialize Nodemailer:', error)
+    console.error('❌ Failed to initialize Nodemailer:', error)
   }
+} else {
+  console.warn(
+    '⚠️ Nodemailer not initialized - missing EMAIL_SERVICE, EMAIL_USERNAME, or EMAIL_PASSWORD'
+  )
+  console.log('Available env vars:', {
+    EMAIL_SERVICE: !!env.EMAIL_SERVICE,
+    EMAIL_USERNAME: !!env.EMAIL_USERNAME,
+    EMAIL_PASSWORD: !!env.EMAIL_PASSWORD,
+  })
 }
 
 // Email configuration types
@@ -128,24 +141,49 @@ export class EmailService {
     throw new Error('No email provider configured')
   }
 
-  // Send email using the configured provider
+  // Send email using the configured provider with fallback
   async sendEmail(options: EmailOptions): Promise<EmailResult> {
-    try {
-      const provider = this.getProvider()
+    let lastError: Error | null = null
 
-      if (provider === 'resend') {
-        return await this.sendWithResend(options)
-      } else {
-        return await this.sendWithNodemailer(options)
+    // Try Resend first if available
+    if (resendClient) {
+      try {
+        console.log('Attempting to send email via Resend...')
+        const result = await this.sendWithResend(options)
+        return result
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error('Resend failed')
+        console.warn(
+          'Resend failed, falling back to Nodemailer:',
+          lastError.message
+        )
       }
-    } catch (error) {
-      console.error('Email send failed:', error)
-      return {
-        id: 'failed',
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        provider: 'unknown' as EmailProvider,
+    }
+
+    // Fallback to Nodemailer if available
+    if (nodemailerTransporter) {
+      try {
+        console.log('Attempting to send email via Nodemailer...')
+        const result = await this.sendWithNodemailer(options)
+        return result
+      } catch (error) {
+        lastError =
+          error instanceof Error ? error : new Error('Nodemailer failed')
+        console.error('Nodemailer also failed:', lastError.message)
       }
+    }
+
+    // Both providers failed or none available
+    const errorMessage = lastError
+      ? lastError.message
+      : 'No email providers configured'
+    console.error('All email providers failed:', errorMessage)
+
+    return {
+      id: 'failed',
+      success: false,
+      error: errorMessage,
+      provider: 'unknown' as EmailProvider,
     }
   }
 
@@ -432,6 +470,7 @@ This email was sent from {{firmName}} Law Management Platform.`,
           <div style="background-color: #fef3c7; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
             <h3 style="margin-top: 0; color: #92400e;">Your Owner Account:</h3>
             <p><strong>Email:</strong> {{ownerEmail}}</p>
+            <p><strong>Password:</strong> {{ownerPassword}}</p>
             <p><strong>Role:</strong> Firm Owner</p>
             <p style="font-size: 14px; color: #92400e;">
               <strong>Important:</strong> Please change your password after first login.
@@ -467,6 +506,7 @@ Firm Details:
 
 Your Owner Account:
 - Email: {{ownerEmail}}
+- Password: {{ownerPassword}}
 - Role: Firm Owner
 
 IMPORTANT: Please change your password after first login.
@@ -608,6 +648,7 @@ export interface LawFirmCreatedEmailVariables extends TemplateVariables {
   ownerFirstName: string
   ownerLastName: string
   ownerEmail: string
+  ownerPassword: string
   firmName: string
   plan: string
   domain?: string
