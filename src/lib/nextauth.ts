@@ -4,6 +4,45 @@ import { prisma } from './prisma'
 import { verifyPassword } from './auth'
 import { env } from './env'
 
+// Define proper types for the database entities
+interface UserRole {
+  role: {
+    name: string
+  }
+}
+
+interface LawFirm {
+  name: string
+  isActive: boolean
+}
+
+interface User {
+  id: string
+  isActive: boolean
+  lawFirmId: string
+  lawFirm: LawFirm
+  userRoles: UserRole[]
+}
+
+interface PlatformUser {
+  id: string
+  email: string
+  name: string | null
+  password: string
+  isActive: boolean
+  users: User[]
+}
+
+interface CustomUser {
+  id: string
+  email: string
+  name?: string
+  platformUserId: string
+  lawFirmId: string
+  lawFirmName: string
+  role: string
+}
+
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
@@ -21,7 +60,7 @@ export const authOptions: NextAuthOptions = {
           console.log('🔍 NextAuth: Attempting login for:', credentials.email)
 
           // Find platform user
-          const platformUser = await prisma.platformUser.findUnique({
+          const platformUser = (await prisma.platformUser.findUnique({
             where: { email: credentials.email },
             include: {
               users: {
@@ -35,7 +74,7 @@ export const authOptions: NextAuthOptions = {
                 },
               },
             },
-          })
+          })) as PlatformUser | null
 
           console.log('👤 NextAuth: Platform user found:', !!platformUser)
 
@@ -60,7 +99,7 @@ export const authOptions: NextAuthOptions = {
 
           // Check if this is a super admin (platform user without law firm users)
           if (platformUser.users.length === 0) {
-            return {
+            const superAdminUser: CustomUser = {
               id: platformUser.id,
               email: platformUser.email,
               name: platformUser.name || undefined,
@@ -68,31 +107,53 @@ export const authOptions: NextAuthOptions = {
               lawFirmId: '',
               lawFirmName: 'Platform Administration',
               role: 'super_admin',
-            } as {
-              id: string
-              email: string
-              name?: string
-              platformUserId: string
-              lawFirmId: string
-              lawFirmName: string
-              role: string
             }
+
+            console.log(
+              '✅ NextAuth: Returning super admin user:',
+              superAdminUser
+            )
+            return superAdminUser
           }
 
           // Get the user's primary law firm (first active one)
+          console.log('🏢 NextAuth: Checking law firm users:', {
+            totalUsers: platformUser.users.length,
+            users: platformUser.users.map((u: User) => ({
+              id: u.id,
+              isActive: u.isActive,
+              lawFirmName: u.lawFirm.name,
+              lawFirmIsActive: u.lawFirm.isActive,
+              roles: u.userRoles.map((ur: UserRole) => ur.role.name),
+            })),
+          })
+
           const primaryUser = platformUser.users.find(
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (user: any) => user.lawFirm.isActive && user.isActive
+            (user: User) => user.lawFirm.isActive && user.isActive
           )
 
           if (!primaryUser) {
+            console.log('❌ NextAuth: No active primary user found')
+            console.log('🔍 NextAuth: Debug info:', {
+              hasUsers: platformUser.users.length > 0,
+              firstUserActive: platformUser.users[0]?.isActive,
+              firstLawFirmActive: platformUser.users[0]?.lawFirm.isActive,
+              firstUserRoles: platformUser.users[0]?.userRoles.length,
+            })
             return null
           }
+
+          console.log('✅ NextAuth: Primary user found:', {
+            userId: primaryUser.id,
+            lawFirmId: primaryUser.lawFirmId,
+            lawFirmName: primaryUser.lawFirm.name,
+            roles: primaryUser.userRoles.map((ur: UserRole) => ur.role.name),
+          })
 
           // Get primary role
           const primaryRole = primaryUser.userRoles[0]?.role.name || 'user'
 
-          return {
+          const userObject: CustomUser = {
             id: primaryUser.id,
             email: platformUser.email,
             name: platformUser.name || undefined,
@@ -100,14 +161,21 @@ export const authOptions: NextAuthOptions = {
             lawFirmId: primaryUser.lawFirmId,
             lawFirmName: primaryUser.lawFirm.name,
             role: primaryRole,
-          } as {
-            id: string
-            email: string
-            name?: string
-            platformUserId: string
-            lawFirmId: string
-            lawFirmName: string
-            role: string
+          }
+
+          console.log(
+            '🎯 NextAuth: About to return law firm user with role:',
+            primaryRole
+          )
+
+          try {
+            return userObject
+          } catch (returnError) {
+            console.error(
+              '💥 NextAuth: Error returning user object:',
+              returnError
+            )
+            return null
           }
         } catch (error) {
           console.error('💥 NextAuth error:', error)
@@ -130,27 +198,50 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.platformUserId = user.platformUserId
-        token.lawFirmId = user.lawFirmId
-        token.lawFirmName = user.lawFirmName
-        token.role = user.role
+        console.log('🔄 JWT callback - received user:', {
+          id: user.id,
+          email: user.email,
+          role: (user as CustomUser).role,
+          platformUserId: (user as CustomUser).platformUserId,
+        })
+
+        // Add token version to invalidate old tokens
+        const tokenVersion = Date.now()
+
+        token.platformUserId = (user as CustomUser).platformUserId
+        token.lawFirmId = (user as CustomUser).lawFirmId
+        token.lawFirmName = (user as CustomUser).lawFirmName
+        token.role = (user as CustomUser).role
+        token.tokenVersion = tokenVersion
+
+        console.log(
+          '🔄 JWT callback - token updated with role:',
+          (user as CustomUser).role
+        )
       }
+
+      // Validate token version for old tokens
+      if (token.email && !token.tokenVersion) {
+        console.log('⚠️ Old token detected without version, forcing reauth')
+        return null // Force re-authentication
+      }
+
       return token
     },
     async session({ session, token }) {
-      console.log('Session callback - token:', token)
+      console.log('🔄 Session callback - token role:', token.role)
       const newSession = {
         ...session,
         user: {
           ...session.user,
           id: token.sub,
-          platformUserId: token.platformUserId,
-          lawFirmId: token.lawFirmId,
-          lawFirmName: token.lawFirmName,
-          role: token.role,
+          platformUserId: token.platformUserId as string,
+          lawFirmId: token.lawFirmId as string,
+          lawFirmName: token.lawFirmName as string,
+          role: token.role as string,
         },
       }
-      console.log('Session callback - returning session:', newSession)
+      console.log('🔄 Session callback - returning role:', newSession.user.role)
       return newSession
     },
   },

@@ -2,7 +2,11 @@ import { Client } from 'pg'
 
 async function testConnection() {
   const client = new Client({
-    connectionString: process.env.DATABASE_URL,
+    host: 'localhost',
+    port: 5432,
+    database: 'lawfirm_db',
+    user: 'postgres',
+    password: 'Ali.rayyan001',
   })
 
   try {

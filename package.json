@@ -2,6 +2,7 @@
   "name": "lawfirm-software",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev --port 3000 --turbopack",
     "build": "prisma generate && next build",
@@ -17,7 +18,8 @@
     "db:setup-rls": "node scripts/setup-rls.js",
     "test:tenant-context": "node scripts/test-tenant-context.js",
     "init-firm": "node scripts/initialize-law-firm.js",
-    "test:rbac": "node scripts/test-rbac.js"
+    "test:rbac": "node scripts/test-rbac.js",
+    "create-superadmin": "node scripts/create-proper-superadmin.js"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [

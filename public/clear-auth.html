@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clear Authentication Data</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 50px; background: #f5f5f5; }
+        .container { background: white; padding: 30px; border-radius: 8px; max-width: 600px; margin: 0 auto; }
+        .btn { background: #dc2626; color: white; padding: 12px 24px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; margin: 10px 0; }
+        .btn:hover { background: #b91c1c; }
+        .success { color: #059669; font-weight: bold; margin: 10px 0; }
+        .info { background: #eff6ff; padding: 15px; border-left: 4px solid #3b82f6; margin: 15px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧹 Clear Authentication Data</h1>
+        <p>This page will clear all cached authentication data from your browser.</p>
+
+        <div class="info">
+            <strong>Current Login Credentials:</strong><br>
+            Superadmin: <code>superadmin@lawfirm.com</code> / <code>superadmin123</code><br>
+            Law Firm Owner: <code>ali.rayyan001@gmail.com</code> / <code>12345</code>
+        </div>
+
+        <button class="btn" onclick="clearAllData()">🚀 Clear All Auth Data & Reload</button>
+
+        <div id="status"></div>
+
+        <h3>Manual Steps (if needed):</h3>
+        <ol>
+            <li>Open DevTools (F12)</li>
+            <li>Go to Application tab</li>
+            <li>Clear Storage → Clear site data</li>
+            <li>Or use Incognito mode</li>
+        </ol>
+    </div>
+
+    <script>
+        function clearAllData() {
+            const status = document.getElementById('status');
+
+            try {
+                // Clear localStorage
+                localStorage.clear();
+
+                // Clear sessionStorage
+                sessionStorage.clear();
+
+                // Clear cookies for this domain
+                document.cookie.split(";").forEach(function(c) {
+                    document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+                });
+
+                // Clear cookies with different paths
+                const cookies = ['next-auth.callback-url', 'next-auth.csrf-token', 'next-auth.session-token', '__Secure-next-auth.session-token'];
+                cookies.forEach(cookieName => {
+                    document.cookie = cookieName + '=; expires=Thu, 01 Jan 1970 00:00:01 GMT; path=/';
+                    document.cookie = cookieName + '=; expires=Thu, 01 Jan 1970 00:00:01 GMT; path=/; domain=localhost';
+                    document.cookie = cookieName + '=; expires=Thu, 01 Jan 1970 00:00:01 GMT; path=/; domain=.localhost';
+                });
+
+                status.innerHTML = '<div class="success">✅ All authentication data cleared!</div>';
+
+                // Reload after a short delay
+                setTimeout(() => {
+                    window.location.href = 'http://localhost:3000';
+                }, 2000);
+
+            } catch (error) {
+                status.innerHTML = '<div style="color: red;">❌ Error: ' + error.message + '</div>';
+            }
+        }
+
+        // Auto-clear on load if requested
+        if (window.location.search.includes('auto=true')) {
+            clearAllData();
+        }
+    </script>
+</body>
+</html>

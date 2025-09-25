@@ -9,7 +9,6 @@ export default function LoginForm() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -34,35 +33,20 @@ export default function LoginForm() {
       if (result?.ok) {
         console.log('✅ Login successful! Redirecting...')
 
-        const redirectPath =
-          email === 'superadmin@lawfirm.com' ? '/admin' : '/dashboard'
-        console.log('🔄 Attempting redirect to:', redirectPath)
-
-        // Try multiple redirect methods simultaneously
-        try {
-          window.location.href = redirectPath
-          window.location.assign(redirectPath)
-          window.location.replace(redirectPath)
-
-          // Also try using router as backup
-          setTimeout(() => {
-            router.push(redirectPath)
-            router.replace(redirectPath)
-          }, 100)
-
-          // Force redirect with document.location as last resort
-          setTimeout(() => {
-            document.location.href = redirectPath
-          }, 500)
-        } catch (error) {
-          console.error('Redirect failed:', error)
-          // Manual navigation if all else fails
-          window.open(redirectPath, '_self')
-        }
+        // Force a hard refresh to clear any cached tokens
+        window.location.href = '/'
         return
       } else {
         console.log('❌ Login failed:', result?.error)
-        setError('Invalid credentials')
+
+        // Handle specific error cases
+        if (result?.error === 'CredentialsSignin') {
+          setError('Invalid email or password')
+        } else if (result?.error) {
+          setError('Authentication failed. Please try again.')
+        } else {
+          setError('Login failed. Please check your credentials.')
+        }
       }
     } catch (error) {
       console.error('💥 Login error:', error)

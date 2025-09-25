@@ -16,9 +16,19 @@ export async function GET() {
 
     // Check if user is super admin
     const user = session.user as { role?: string }
+    console.log('🔍 Admin Stats API - User role check:', {
+      userRole: user.role,
+      fullUser: user,
+      expectedRole: 'super_admin',
+      matches: user.role === 'super_admin',
+    })
+
     if (user.role !== 'super_admin') {
+      console.log('❌ Admin Stats API - Access denied for role:', user.role)
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
+
+    console.log('✅ Admin Stats API - Access granted for superadmin')
 
     // Get platform statistics
     const [

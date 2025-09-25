@@ -4,9 +4,18 @@ import { useSession } from 'next-auth/react'
 import { redirect } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
+interface UserContext {
+  id: string
+  email: string
+  name?: string
+  role: string
+  lawFirmId: string
+  lawFirmName: string
+}
+
 export default function DashboardPage() {
   const { data: session, status } = useSession()
-  const [userContext, setUserContext] = useState(null)
+  const [userContext, setUserContext] = useState<UserContext | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -70,12 +79,12 @@ export default function DashboardPage() {
           <div className="flex justify-between h-16">
             <div className="flex items-center">
               <h1 className="text-xl font-semibold text-gray-900">
-                {session.user?.lawFirmName || 'Law Firm'} Dashboard
+                {session?.user?.lawFirmName || 'Law Firm'} Dashboard
               </h1>
             </div>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-700">
-                {session.user?.name} ({session.user?.role})
+                {session?.user?.name} ({session?.user?.role})
               </span>
               <button
                 onClick={() => {
