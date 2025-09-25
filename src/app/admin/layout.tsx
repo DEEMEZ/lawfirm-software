@@ -5,6 +5,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { signOut } from 'next-auth/react'
 import Link from 'next/link'
 
 interface AdminLayoutProps {
@@ -71,10 +72,10 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             <div className="flex items-center space-x-4">
               <span className="text-sm">Platform Administrator</span>
               <button
-                onClick={() => router.push('/')}
+                onClick={() => signOut({ callbackUrl: '/' })}
                 className="bg-red-700 hover:bg-red-800 px-3 py-1 rounded text-sm"
               >
-                Exit Admin
+                Logout
               </button>
             </div>
           </div>
@@ -131,9 +132,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         </nav>
 
         {/* Main Content */}
-        <main className="flex-1 p-6">
-          {children}
-        </main>
+        <main className="flex-1 p-6">{children}</main>
       </div>
     </div>
   )

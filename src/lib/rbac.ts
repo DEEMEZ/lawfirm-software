@@ -9,20 +9,20 @@ export const ROLES = {
   JUNIOR_LAWYER: 'junior_lawyer',
   ASSISTANT: 'assistant',
   SECRETARY: 'secretary',
-  CLIENT: 'client'
+  CLIENT: 'client',
 } as const
 
-export type Role = typeof ROLES[keyof typeof ROLES]
+export type Role = (typeof ROLES)[keyof typeof ROLES]
 
 // Role hierarchy levels (for permission checking)
 export const ROLE_HIERARCHY: Record<Role, number> = {
   [ROLES.SUPER_ADMIN]: 1000, // Platform level
-  [ROLES.OWNER]: 100,        // Firm owner
+  [ROLES.OWNER]: 100, // Firm owner
   [ROLES.SENIOR_LAWYER]: 80,
   [ROLES.JUNIOR_LAWYER]: 60,
   [ROLES.ASSISTANT]: 40,
   [ROLES.SECRETARY]: 30,
-  [ROLES.CLIENT]: 10
+  [ROLES.CLIENT]: 10,
 }
 
 // Permission categories
@@ -33,7 +33,7 @@ export const PERMISSION_CATEGORIES = {
   DOCUMENTS: 'documents',
   CALENDAR: 'calendar',
   TASKS: 'tasks',
-  ADMIN: 'admin'
+  ADMIN: 'admin',
 } as const
 
 // Detailed permissions
@@ -43,7 +43,7 @@ export const PERMISSIONS = {
     MANAGE_LAW_FIRMS: 'platform.law_firms.manage',
     VIEW_ANALYTICS: 'platform.analytics.view',
     MANAGE_BILLING: 'platform.billing.manage',
-    SUPPORT_ACCESS: 'platform.support.access'
+    SUPPORT_ACCESS: 'platform.support.access',
   },
 
   // User management permissions
@@ -52,7 +52,7 @@ export const PERMISSIONS = {
     CREATE: 'users.create',
     EDIT: 'users.edit',
     DELETE: 'users.delete',
-    MANAGE_ROLES: 'users.manage_roles'
+    MANAGE_ROLES: 'users.manage_roles',
   },
 
   // Case management permissions
@@ -62,7 +62,7 @@ export const PERMISSIONS = {
     CREATE: 'cases.create',
     EDIT: 'cases.edit',
     DELETE: 'cases.delete',
-    ASSIGN: 'cases.assign'
+    ASSIGN: 'cases.assign',
   },
 
   // Document management permissions
@@ -71,7 +71,7 @@ export const PERMISSIONS = {
     UPLOAD: 'documents.upload',
     EDIT: 'documents.edit',
     DELETE: 'documents.delete',
-    MANAGE_PERMISSIONS: 'documents.manage_permissions'
+    MANAGE_PERMISSIONS: 'documents.manage_permissions',
   },
 
   // Calendar permissions
@@ -80,7 +80,7 @@ export const PERMISSIONS = {
     VIEW_ALL: 'calendar.view_all',
     CREATE: 'calendar.create',
     EDIT: 'calendar.edit',
-    DELETE: 'calendar.delete'
+    DELETE: 'calendar.delete',
   },
 
   // Task management permissions
@@ -89,15 +89,15 @@ export const PERMISSIONS = {
     CREATE: 'tasks.create',
     EDIT: 'tasks.edit',
     DELETE: 'tasks.delete',
-    ASSIGN: 'tasks.assign'
+    ASSIGN: 'tasks.assign',
   },
 
   // Administrative permissions
   ADMIN: {
     FIRM_SETTINGS: 'admin.firm_settings',
     WORKSPACES: 'admin.workspaces',
-    AUDIT_LOGS: 'admin.audit_logs'
-  }
+    AUDIT_LOGS: 'admin.audit_logs',
+  },
 } as const
 
 // Role permission mappings
@@ -114,7 +114,7 @@ export const ROLE_PERMISSIONS: Record<Role, string[]> = {
     ...Object.values(PERMISSIONS.DOCUMENTS),
     ...Object.values(PERMISSIONS.CALENDAR),
     ...Object.values(PERMISSIONS.TASKS),
-    ...Object.values(PERMISSIONS.ADMIN)
+    ...Object.values(PERMISSIONS.ADMIN),
   ],
 
   [ROLES.OWNER]: [
@@ -124,7 +124,7 @@ export const ROLE_PERMISSIONS: Record<Role, string[]> = {
     ...Object.values(PERMISSIONS.DOCUMENTS),
     ...Object.values(PERMISSIONS.CALENDAR),
     ...Object.values(PERMISSIONS.TASKS),
-    ...Object.values(PERMISSIONS.ADMIN)
+    ...Object.values(PERMISSIONS.ADMIN),
   ],
 
   [ROLES.SENIOR_LAWYER]: [
@@ -135,6 +135,7 @@ export const ROLE_PERMISSIONS: Record<Role, string[]> = {
     PERMISSIONS.DOCUMENTS.VIEW,
     PERMISSIONS.DOCUMENTS.UPLOAD,
     PERMISSIONS.DOCUMENTS.EDIT,
+    PERMISSIONS.DOCUMENTS.DELETE,
     PERMISSIONS.CALENDAR.VIEW_ALL,
     PERMISSIONS.CALENDAR.CREATE,
     PERMISSIONS.CALENDAR.EDIT,
@@ -142,7 +143,7 @@ export const ROLE_PERMISSIONS: Record<Role, string[]> = {
     PERMISSIONS.TASKS.CREATE,
     PERMISSIONS.TASKS.EDIT,
     PERMISSIONS.TASKS.ASSIGN,
-    PERMISSIONS.USERS.VIEW
+    PERMISSIONS.USERS.VIEW,
   ],
 
   [ROLES.JUNIOR_LAWYER]: [
@@ -156,7 +157,7 @@ export const ROLE_PERMISSIONS: Record<Role, string[]> = {
     PERMISSIONS.CALENDAR.EDIT,
     PERMISSIONS.TASKS.VIEW,
     PERMISSIONS.TASKS.CREATE,
-    PERMISSIONS.TASKS.EDIT
+    PERMISSIONS.TASKS.EDIT,
   ],
 
   [ROLES.ASSISTANT]: [
@@ -167,7 +168,7 @@ export const ROLE_PERMISSIONS: Record<Role, string[]> = {
     PERMISSIONS.CALENDAR.CREATE,
     PERMISSIONS.CALENDAR.EDIT,
     PERMISSIONS.TASKS.VIEW,
-    PERMISSIONS.TASKS.EDIT
+    PERMISSIONS.TASKS.EDIT,
   ],
 
   [ROLES.SECRETARY]: [
@@ -175,14 +176,14 @@ export const ROLE_PERMISSIONS: Record<Role, string[]> = {
     PERMISSIONS.DOCUMENTS.VIEW,
     PERMISSIONS.CALENDAR.VIEW,
     PERMISSIONS.CALENDAR.CREATE,
-    PERMISSIONS.TASKS.VIEW
+    PERMISSIONS.TASKS.VIEW,
   ],
 
   [ROLES.CLIENT]: [
     PERMISSIONS.CASES.VIEW,
     PERMISSIONS.DOCUMENTS.VIEW,
-    PERMISSIONS.CALENDAR.VIEW
-  ]
+    PERMISSIONS.CALENDAR.VIEW,
+  ],
 }
 
 // User context interface
@@ -195,25 +196,41 @@ export interface UserContext {
 }
 
 // Check if user has specific permission
-export function hasPermission(userContext: UserContext, permission: string): boolean {
+export function hasPermission(
+  userContext: UserContext,
+  permission: string
+): boolean {
   if (!userContext.isActive) return false
   return userContext.permissions.includes(permission)
 }
 
 // Check if user has any of the specified permissions
-export function hasAnyPermission(userContext: UserContext, permissions: string[]): boolean {
+export function hasAnyPermission(
+  userContext: UserContext,
+  permissions: string[]
+): boolean {
   if (!userContext.isActive) return false
-  return permissions.some(permission => userContext.permissions.includes(permission))
+  return permissions.some(permission =>
+    userContext.permissions.includes(permission)
+  )
 }
 
 // Check if user has all specified permissions
-export function hasAllPermissions(userContext: UserContext, permissions: string[]): boolean {
+export function hasAllPermissions(
+  userContext: UserContext,
+  permissions: string[]
+): boolean {
   if (!userContext.isActive) return false
-  return permissions.every(permission => userContext.permissions.includes(permission))
+  return permissions.every(permission =>
+    userContext.permissions.includes(permission)
+  )
 }
 
 // Check if user has role or higher
-export function hasRoleOrHigher(userContext: UserContext, requiredRole: Role): boolean {
+export function hasRoleOrHigher(
+  userContext: UserContext,
+  requiredRole: Role
+): boolean {
   if (!userContext.isActive) return false
   const userLevel = ROLE_HIERARCHY[userContext.role]
   const requiredLevel = ROLE_HIERARCHY[requiredRole]
@@ -248,14 +265,20 @@ export function canAccessResource(
 
 // Authorization error class
 export class AuthorizationError extends Error {
-  constructor(message: string, public permission?: string) {
+  constructor(
+    message: string,
+    public permission?: string
+  ) {
     super(message)
     this.name = 'AuthorizationError'
   }
 }
 
 // Server-side authorization guard
-export function requirePermission(userContext: UserContext, permission: string): void {
+export function requirePermission(
+  userContext: UserContext,
+  permission: string
+): void {
   if (!hasPermission(userContext, permission)) {
     throw new AuthorizationError(
       `Access denied. Required permission: ${permission}`,
@@ -265,7 +288,10 @@ export function requirePermission(userContext: UserContext, permission: string):
 }
 
 // Server-side role guard
-export function requireRole(userContext: UserContext, requiredRole: Role): void {
+export function requireRole(
+  userContext: UserContext,
+  requiredRole: Role
+): void {
   if (!hasRoleOrHigher(userContext, requiredRole)) {
     throw new AuthorizationError(
       `Access denied. Required role: ${requiredRole} or higher`
@@ -274,7 +300,10 @@ export function requireRole(userContext: UserContext, requiredRole: Role): void 
 }
 
 // Multiple permission guard
-export function requireAnyPermission(userContext: UserContext, permissions: string[]): void {
+export function requireAnyPermission(
+  userContext: UserContext,
+  permissions: string[]
+): void {
   if (!hasAnyPermission(userContext, permissions)) {
     throw new AuthorizationError(
       `Access denied. Required permissions: ${permissions.join(' OR ')}`
@@ -329,12 +358,28 @@ export function getAuthorizedNavItems(userContext: UserContext): NavItem[] {
   const allNavItems: NavItem[] = [
     { label: 'Dashboard', href: '/dashboard' },
     { label: 'Cases', href: '/cases', permission: PERMISSIONS.CASES.VIEW },
-    { label: 'Documents', href: '/documents', permission: PERMISSIONS.DOCUMENTS.VIEW },
-    { label: 'Calendar', href: '/calendar', permission: PERMISSIONS.CALENDAR.VIEW },
+    {
+      label: 'Documents',
+      href: '/documents',
+      permission: PERMISSIONS.DOCUMENTS.VIEW,
+    },
+    {
+      label: 'Calendar',
+      href: '/calendar',
+      permission: PERMISSIONS.CALENDAR.VIEW,
+    },
     { label: 'Tasks', href: '/tasks', permission: PERMISSIONS.TASKS.VIEW },
     { label: 'Users', href: '/users', permission: PERMISSIONS.USERS.VIEW },
-    { label: 'Admin', href: '/admin', permission: PERMISSIONS.ADMIN.FIRM_SETTINGS },
-    { label: 'Platform Admin', href: '/platform-admin', role: ROLES.SUPER_ADMIN }
+    {
+      label: 'Admin',
+      href: '/admin',
+      permission: PERMISSIONS.ADMIN.FIRM_SETTINGS,
+    },
+    {
+      label: 'Platform Admin',
+      href: '/platform-admin',
+      role: ROLES.SUPER_ADMIN,
+    },
   ]
 
   return allNavItems.filter(item => {
@@ -362,7 +407,7 @@ export const ROLE_ACTION_TEST_MATRIX = {
     canUploadDocument: true,
     canDeleteDocument: true,
     canViewAllCalendars: true,
-    canAssignTasks: true
+    canAssignTasks: true,
   },
   [ROLES.OWNER]: {
     canCreateLawFirm: false,
@@ -376,7 +421,7 @@ export const ROLE_ACTION_TEST_MATRIX = {
     canUploadDocument: true,
     canDeleteDocument: true,
     canViewAllCalendars: true,
-    canAssignTasks: true
+    canAssignTasks: true,
   },
   [ROLES.SENIOR_LAWYER]: {
     canCreateLawFirm: false,
@@ -390,7 +435,7 @@ export const ROLE_ACTION_TEST_MATRIX = {
     canUploadDocument: true,
     canDeleteDocument: false,
     canViewAllCalendars: true,
-    canAssignTasks: true
+    canAssignTasks: true,
   },
   [ROLES.JUNIOR_LAWYER]: {
     canCreateLawFirm: false,
@@ -404,7 +449,7 @@ export const ROLE_ACTION_TEST_MATRIX = {
     canUploadDocument: true,
     canDeleteDocument: false,
     canViewAllCalendars: false,
-    canAssignTasks: false
+    canAssignTasks: false,
   },
   [ROLES.ASSISTANT]: {
     canCreateLawFirm: false,
@@ -418,7 +463,7 @@ export const ROLE_ACTION_TEST_MATRIX = {
     canUploadDocument: true,
     canDeleteDocument: false,
     canViewAllCalendars: false,
-    canAssignTasks: false
+    canAssignTasks: false,
   },
   [ROLES.SECRETARY]: {
     canCreateLawFirm: false,
@@ -432,7 +477,7 @@ export const ROLE_ACTION_TEST_MATRIX = {
     canUploadDocument: false,
     canDeleteDocument: false,
     canViewAllCalendars: false,
-    canAssignTasks: false
+    canAssignTasks: false,
   },
   [ROLES.CLIENT]: {
     canCreateLawFirm: false,
@@ -446,6 +491,6 @@ export const ROLE_ACTION_TEST_MATRIX = {
     canUploadDocument: false,
     canDeleteDocument: false,
     canViewAllCalendars: false,
-    canAssignTasks: false
-  }
+    canAssignTasks: false,
+  },
 }

@@ -223,7 +223,15 @@ export const authOptions: NextAuthOptions = {
       // Validate token version for old tokens
       if (token.email && !token.tokenVersion) {
         console.log('⚠️ Old token detected without version, forcing reauth')
-        return null // Force re-authentication
+        // Instead of returning null, clear the token properties to force reauth
+        return {
+          ...token,
+          platformUserId: '',
+          lawFirmId: '',
+          lawFirmName: '',
+          role: '',
+          tokenVersion: undefined,
+        }
       }
 
       return token

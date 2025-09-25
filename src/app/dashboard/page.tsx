@@ -3,19 +3,12 @@
 import { useSession } from 'next-auth/react'
 import { redirect } from 'next/navigation'
 import { useEffect, useState } from 'react'
-
-interface UserContext {
-  id: string
-  email: string
-  name?: string
-  role: string
-  lawFirmId: string
-  lawFirmName: string
-}
+import Dashboard from '@/components/dashboard/Dashboard'
+import { User } from '@/types/user'
 
 export default function DashboardPage() {
   const { data: session, status } = useSession()
-  const [userContext, setUserContext] = useState<UserContext | null>(null)
+  const [userContext, setUserContext] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -48,6 +41,7 @@ export default function DashboardPage() {
       role: session.user.role,
       lawFirmId: session.user.lawFirmId,
       lawFirmName: session.user.lawFirmName,
+      platformUserId: session.user.platformUserId,
     })
     setLoading(false)
   }, [session, status])
@@ -79,12 +73,12 @@ export default function DashboardPage() {
           <div className="flex justify-between h-16">
             <div className="flex items-center">
               <h1 className="text-xl font-semibold text-gray-900">
-                {session?.user?.lawFirmName || 'Law Firm'} Dashboard
+                {userContext.lawFirmName || 'Law Firm'} Dashboard
               </h1>
             </div>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-700">
-                {session?.user?.name} ({session?.user?.role})
+                {userContext.name || userContext.email} ({userContext.role})
               </span>
               <button
                 onClick={() => {
@@ -99,70 +93,8 @@ export default function DashboardPage() {
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
-          <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="px-4 py-5 sm:p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                Welcome to Your Law Firm Dashboard
-              </h2>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-blue-50 p-6 rounded-lg">
-                  <h3 className="text-lg font-semibold text-blue-900">Cases</h3>
-                  <p className="text-3xl font-bold text-blue-600">0</p>
-                  <p className="text-sm text-blue-700">Active cases</p>
-                </div>
-
-                <div className="bg-green-50 p-6 rounded-lg">
-                  <h3 className="text-lg font-semibold text-green-900">
-                    Clients
-                  </h3>
-                  <p className="text-3xl font-bold text-green-600">0</p>
-                  <p className="text-sm text-green-700">Total clients</p>
-                </div>
-
-                <div className="bg-purple-50 p-6 rounded-lg">
-                  <h3 className="text-lg font-semibold text-purple-900">
-                    Documents
-                  </h3>
-                  <p className="text-3xl font-bold text-purple-600">0</p>
-                  <p className="text-sm text-purple-700">Total documents</p>
-                </div>
-              </div>
-
-              <div className="mt-8">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  Recent Activity
-                </h3>
-                <div className="bg-gray-50 p-6 rounded-lg">
-                  <p className="text-gray-600 text-center">
-                    No recent activity. Start by creating your first case or
-                    adding clients.
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-8">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  Quick Actions
-                </h3>
-                <div className="flex space-x-4">
-                  <button className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">
-                    Add New Case
-                  </button>
-                  <button className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">
-                    Add New Client
-                  </button>
-                  <button className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">
-                    Upload Document
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </main>
+      {/* Use the enhanced Dashboard component with file upload */}
+      <Dashboard user={userContext} />
     </div>
   )
 }

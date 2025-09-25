@@ -15,12 +15,25 @@ export default function Home() {
   const user = session?.user as User | undefined
 
   useEffect(() => {
+    // Only redirect if user is authenticated and not in loading state
+    // Skip redirects if user just logged out (during signout callback)
     if (session?.user && status === 'authenticated') {
       console.log('🔄 User authenticated:', {
         email: session.user.email,
         role: session.user.role,
         lawFirmId: session.user.lawFirmId,
       })
+
+      // Check for logout callback URL parameter to avoid redirecting during signout
+      const urlParams = new URLSearchParams(window.location.search)
+      const isSigningOut =
+        urlParams.get('signout') === 'true' ||
+        window.location.href.includes('signout')
+
+      if (isSigningOut) {
+        console.log('🔄 User is signing out, skipping redirect')
+        return
+      }
 
       // Check if user is superadmin - redirect to admin dashboard
       // ONLY check role, not hardcoded lawFirmId to avoid old token issues

@@ -1,11 +1,11 @@
-// Document Download API
+// Document Download API (Fixed)
 // Purpose: Generate presigned URLs for secure document downloads
 
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth-guards'
-import { createDownloadUrl } from '@/lib/storage'
 import { PERMISSIONS } from '@/lib/rbac'
 import { requirePermission } from '@/lib/rbac'
+import { prisma } from '@/lib/prisma'
 
 interface RouteParams {
   params: Promise<{ key: string }>
@@ -26,35 +26,64 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       const { key: rawKey } = await params
       const key = decodeURIComponent(rawKey)
 
-      // Validate key format (should start with law firm ID)
-      if (!key.startsWith(userContext.lawFirmId)) {
+      // Find document in database to verify access
+      const document = await prisma.document.findFirst({
+        where: {
+          filePath: key, // filePath stores the R2 key
+          lawFirmId: userContext.lawFirmId,
+        },
+        select: {
+          id: true,
+          name: true,
+          filePath: true,
+          lawFirmId: true,
+        },
+      })
+
+      if (!document) {
         return NextResponse.json(
-          { error: 'Invalid document key' },
-          { status: 403 }
+          { error: 'Document not found or access denied' },
+          { status: 404 }
         )
       }
 
-      // Generate download URL
-      const downloadResult = await createDownloadUrl({
-        key,
-        lawFirmId: userContext.lawFirmId,
-        expiresIn: 3600, // 1 hour
-        responseContentDisposition:
+      // Create a proper presigned download URL using AWS SDK
+      const { S3Client, GetObjectCommand } = await import('@aws-sdk/client-s3')
+      const { getSignedUrl } = await import('@aws-sdk/s3-request-presigner')
+
+      // Create S3 client with same config as storage service
+      const s3Client = new S3Client({
+        region: 'auto',
+        endpoint: process.env.R2_ENDPOINT,
+        credentials: {
+          accessKeyId: process.env.R2_ACCESS_KEY_ID!,
+          secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
+        },
+        forcePathStyle: true, // Required for R2
+      })
+
+      const command = new GetObjectCommand({
+        Bucket: process.env.R2_BUCKET_NAME,
+        Key: document.filePath,
+        ResponseContentDisposition:
           download && fileName
-            ? `attachment; filename="${fileName}"`
+            ? `attachment; filename="${fileName || document.name}"`
             : undefined,
+      })
+
+      const downloadUrl = await getSignedUrl(s3Client, command, {
+        expiresIn: 3600, // 1 hour
       })
 
       return NextResponse.json({
         message: 'Download URL generated successfully',
         download: {
-          downloadUrl: downloadResult.downloadUrl,
-          expiresAt: downloadResult.expiresAt.toISOString(),
+          downloadUrl: downloadUrl,
+          expiresAt: new Date(Date.now() + 3600000).toISOString(),
         },
-        metadata: downloadResult.metadata,
-        instructions: {
-          method: 'GET',
-          note: 'Use the downloadUrl to download the file. URL expires in 1 hour.',
+        metadata: {
+          fileName: document.name,
+          key: document.filePath,
         },
       })
     } catch (error) {
