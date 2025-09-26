@@ -6,7 +6,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { signOut } from 'next-auth/react'
-import Link from 'next/link'
+import { Sidebar } from '@/components/Global/Sidebar'
 
 interface AdminLayoutProps {
   children: React.ReactNode
@@ -61,78 +61,41 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Admin Header */}
-      <header className="bg-red-600 text-white shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-4">
-              <h1 className="text-xl font-bold">⚡ Super Admin Console</h1>
-            </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm">Platform Administrator</span>
-              <button
-                onClick={() => signOut({ callbackUrl: '/' })}
-                className="bg-red-700 hover:bg-red-800 px-3 py-1 rounded text-sm"
-              >
-                Logout
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* Modern Collapsible Sidebar */}
+      <Sidebar userRole="super_admin" />
 
-      <div className="flex">
-        {/* Sidebar Navigation */}
-        <nav className="w-64 bg-white shadow-lg min-h-screen">
-          <div className="p-4">
-            <ul className="space-y-2">
-              <li>
-                <Link
-                  href="/admin"
-                  className="block px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-h-screen">
+        {/* Top Header */}
+        <header className="bg-white border-b border-gray-200 shadow-sm h-[73px]">
+          <div className="px-6 h-full">
+            <div className="flex justify-between items-center h-full">
+              <div className="flex items-center space-x-4">
+                <h1 className="text-xl font-semibold text-gray-900 lg:ml-0 ml-12">
+                  Super Admin Console
+                </h1>
+              </div>
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2">
+                  <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                  <span className="text-sm text-gray-600">
+                    Platform Administrator
+                  </span>
+                </div>
+                <button
+                  onClick={() => signOut({ callbackUrl: '/' })}
+                  className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
                 >
-                  📊 Dashboard
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/admin/firms"
-                  className="block px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
-                >
-                  🏢 Law Firms
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/admin/audit"
-                  className="block px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
-                >
-                  📋 Audit Logs
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/admin/analytics"
-                  className="block px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
-                >
-                  📊 Analytics
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/admin/settings"
-                  className="block px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
-                >
-                  ⚙️ Platform Settings
-                </Link>
-              </li>
-            </ul>
+                  Logout
+                </button>
+              </div>
+            </div>
           </div>
-        </nav>
+        </header>
 
         {/* Main Content */}
-        <main className="flex-1 p-6">{children}</main>
+        <main className="flex-1 p-6 overflow-auto">{children}</main>
       </div>
     </div>
   )
