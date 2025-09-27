@@ -5,12 +5,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { withRole } from '@/lib/auth-guards'
 import { ROLES } from '@/lib/rbac'
-import { initializeLawFirmSimple } from '../../../../../scripts/initialize-law-firm-simple'
-
-console.log('🔍 API DEBUG: Admin firms route loaded')
-console.log('🔍 API DEBUG: prisma object =', typeof prisma)
-console.log('🔍 API DEBUG: prisma is undefined =', prisma === undefined)
-console.log('🔍 API DEBUG: prisma.law_firms exists =', !!prisma?.law_firms)
+import { initializeLawFirmComplete } from '../../../../../scripts/initialize-law-firm-complete'
 
 // GET /api/admin/firms - List all law firms
 export const GET = withRole(ROLES.SUPER_ADMIN, async (request: NextRequest) => {
@@ -111,9 +106,7 @@ export const POST = withRole(
   ROLES.SUPER_ADMIN,
   async (request: NextRequest) => {
     try {
-      console.log('🔍 API DEBUG: POST /api/admin/firms - Starting')
       const body = await request.json()
-      console.log('🔍 API DEBUG: Request body parsed successfully')
       const {
         name,
         slug,
@@ -203,17 +196,7 @@ export const POST = withRole(
       }
 
       // Create law firm using the initialization script
-      console.log('🔍 API DEBUG: About to call initializeLawFirmSimple')
-      console.log(
-        '🔍 API DEBUG: initializeLawFirmSimple function exists =',
-        !!initializeLawFirmSimple
-      )
-      console.log(
-        '🔍 API DEBUG: typeof initializeLawFirmSimple =',
-        typeof initializeLawFirmSimple
-      )
-
-      const result = await initializeLawFirmSimple({
+      const result = await initializeLawFirmComplete({
         name,
         slug,
         domain,
