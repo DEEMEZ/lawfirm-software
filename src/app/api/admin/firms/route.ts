@@ -195,6 +195,16 @@ export const POST = withRole(
       }
 
       // Create law firm using the initialization script
+      console.log('🔍 API DEBUG: About to call initializeLawFirm')
+      console.log(
+        '🔍 API DEBUG: initializeLawFirm function exists =',
+        !!initializeLawFirm
+      )
+      console.log(
+        '🔍 API DEBUG: typeof initializeLawFirm =',
+        typeof initializeLawFirm
+      )
+
       const result = await initializeLawFirm({
         name,
         slug,
