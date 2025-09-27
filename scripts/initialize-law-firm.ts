@@ -51,135 +51,140 @@ export async function initializeLawFirm(params: InitializeLawFirmParams) {
   console.log(`🏢 Initializing law firm: ${params.name}`)
 
   try {
+    // Test basic Prisma operation first
+    console.log('🔍 TESTING: Basic prisma.law_firms.create before transaction')
+    console.log(
+      '🔍 TESTING: prisma.law_firms.create exists =',
+      !!prisma.law_firms.create
+    )
+
     // Start transaction
-    const result = await prisma.$transaction(
-      async (tx: PrismaTransactionClient) => {
-        // 1. Create the law firm
-        console.log('🏗️ Creating law firm...')
-        console.log('🔍 TX DEBUG: tx object =', typeof tx)
-        console.log('🔍 TX DEBUG: tx.law_firms exists =', !!tx.law_firms)
-        console.log(
-          '🔍 TX DEBUG: tx.law_firms.create exists =',
-          !!tx.law_firms?.create
+    const result = await prisma.$transaction(async tx => {
+      // 1. Create the law firm
+      console.log('🏗️ Creating law firm...')
+      console.log('🔍 TX DEBUG: tx object =', typeof tx)
+      console.log('🔍 TX DEBUG: tx.law_firms exists =', !!tx.law_firms)
+      console.log(
+        '🔍 TX DEBUG: tx.law_firms.create exists =',
+        !!tx.law_firms?.create
+      )
+
+      if (!tx.law_firms?.create) {
+        console.error('💥 TX DEBUG: tx.law_firms.create is undefined!')
+        console.error('💥 TX DEBUG: Available tx methods =', Object.keys(tx))
+        throw new Error(
+          'Prisma transaction client is missing law_firms.create method'
         )
+      }
 
-        if (!tx.law_firms?.create) {
-          console.error('💥 TX DEBUG: tx.law_firms.create is undefined!')
-          console.error('💥 TX DEBUG: Available tx methods =', Object.keys(tx))
-          throw new Error(
-            'Prisma transaction client is missing law_firms.create method'
-          )
-        }
+      const lawFirm = await tx.law_firms.create({
+        data: {
+          id: randomUUID(),
+          name: params.name,
+          slug: params.slug,
+          domain: params.domain,
+          plan: params.plan || 'STARTER',
+          isActive: true,
+          settings: {
+            timezone: 'UTC',
+            dateFormat: 'MM/dd/yyyy',
+            currency: 'USD',
+            businessHours: {
+              monday: { start: '09:00', end: '17:00' },
+              tuesday: { start: '09:00', end: '17:00' },
+              wednesday: { start: '09:00', end: '17:00' },
+              thursday: { start: '09:00', end: '17:00' },
+              friday: { start: '09:00', end: '17:00' },
+              saturday: { closed: true },
+              sunday: { closed: true },
+            },
+            features: {
+              clientPortal: true,
+              documentSharing: true,
+              calendarIntegration: true,
+              emailNotifications: true,
+            },
+          },
+          updatedAt: new Date(),
+        },
+      })
 
-        const lawFirm = await tx.law_firms.create({
+      // 2. Create default roles for the law firm
+      console.log('👥 Creating default roles...')
+      const roles = await createDefaultRoles(tx, lawFirm.id)
+
+      // 3. Create platform user (if doesn't exist)
+      console.log('🔐 Creating platform user...')
+      const hashedPassword = await hashPassword(params.ownerPassword)
+
+      let platformUser = await tx.platform_users.findUnique({
+        where: { email: params.ownerEmail },
+      })
+
+      if (!platformUser) {
+        platformUser = await tx.platform_users.create({
           data: {
             id: randomUUID(),
-            name: params.name,
-            slug: params.slug,
-            domain: params.domain,
-            plan: params.plan || 'STARTER',
+            email: params.ownerEmail,
+            password: hashedPassword,
+            name: `${params.ownerFirstName} ${params.ownerLastName}`,
             isActive: true,
-            settings: {
-              timezone: 'UTC',
-              dateFormat: 'MM/dd/yyyy',
-              currency: 'USD',
-              businessHours: {
-                monday: { start: '09:00', end: '17:00' },
-                tuesday: { start: '09:00', end: '17:00' },
-                wednesday: { start: '09:00', end: '17:00' },
-                thursday: { start: '09:00', end: '17:00' },
-                friday: { start: '09:00', end: '17:00' },
-                saturday: { closed: true },
-                sunday: { closed: true },
-              },
-              features: {
-                clientPortal: true,
-                documentSharing: true,
-                calendarIntegration: true,
-                emailNotifications: true,
-              },
-            },
             updatedAt: new Date(),
           },
         })
+      }
 
-        // 2. Create default roles for the law firm
-        console.log('👥 Creating default roles...')
-        const roles = await createDefaultRoles(tx, lawFirm.id)
+      // 4. Create firm user and assign owner role
+      console.log('👤 Creating owner user...')
+      const user = await tx.users.create({
+        data: {
+          id: randomUUID(),
+          law_firm_id: lawFirm.id,
+          platform_user_id: platformUser.id,
+          isActive: true,
+          joinedAt: new Date(),
+          updatedAt: new Date(),
+        },
+      })
 
-        // 3. Create platform user (if doesn't exist)
-        console.log('🔐 Creating platform user...')
-        const hashedPassword = await hashPassword(params.ownerPassword)
-
-        let platformUser = await tx.platform_users.findUnique({
-          where: { email: params.ownerEmail },
-        })
-
-        if (!platformUser) {
-          platformUser = await tx.platform_users.create({
-            data: {
-              id: randomUUID(),
-              email: params.ownerEmail,
-              password: hashedPassword,
-              name: `${params.ownerFirstName} ${params.ownerLastName}`,
-              isActive: true,
-              updatedAt: new Date(),
-            },
-          })
-        }
-
-        // 4. Create firm user and assign owner role
-        console.log('👤 Creating owner user...')
-        const user = await tx.users.create({
+      // 5. Assign owner role to user
+      const ownerRole = roles.find(r => r.name === 'Owner')
+      if (ownerRole) {
+        await tx.user_roles.create({
           data: {
             id: randomUUID(),
             law_firm_id: lawFirm.id,
-            platform_user_id: platformUser.id,
-            isActive: true,
-            joinedAt: new Date(),
-            updatedAt: new Date(),
+            user_id: user.id,
+            role_id: ownerRole.id,
+            assigned_by: user.id, // Self-assigned during setup
           },
         })
-
-        // 5. Assign owner role to user
-        const ownerRole = roles.find(r => r.name === 'Owner')
-        if (ownerRole) {
-          await tx.user_roles.create({
-            data: {
-              id: randomUUID(),
-              law_firm_id: lawFirm.id,
-              user_id: user.id,
-              role_id: ownerRole.id,
-              assigned_by: user.id, // Self-assigned during setup
-            },
-          })
-        }
-
-        // 6. Create default workspace/team structure
-        console.log('🗂️ Creating default workspace...')
-        // Note: This would need workspace table if you add it later
-
-        // 7. Create default case categories
-        console.log('📁 Creating case categories...')
-        // Note: This would need case_categories table from your schema
-
-        // 8. Create default document categories
-        console.log('📄 Creating document categories...')
-        // Note: This would need document_categories table from your schema
-
-        // 9. Create default settings and preferences
-        console.log('⚙️ Setting up default configurations...')
-        // Settings are already included in law firm creation
-
-        return {
-          lawFirm,
-          platformUser,
-          user,
-          roles,
-          ownerRole,
-        }
       }
-    )
+
+      // 6. Create default workspace/team structure
+      console.log('🗂️ Creating default workspace...')
+      // Note: This would need workspace table if you add it later
+
+      // 7. Create default case categories
+      console.log('📁 Creating case categories...')
+      // Note: This would need case_categories table from your schema
+
+      // 8. Create default document categories
+      console.log('📄 Creating document categories...')
+      // Note: This would need document_categories table from your schema
+
+      // 9. Create default settings and preferences
+      console.log('⚙️ Setting up default configurations...')
+      // Settings are already included in law firm creation
+
+      return {
+        lawFirm,
+        platformUser,
+        user,
+        roles,
+        ownerRole,
+      }
+    })
 
     console.log('✅ Law firm initialization completed successfully!')
     console.log(`📧 Owner: ${params.ownerEmail}`)
