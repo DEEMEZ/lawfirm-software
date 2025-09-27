@@ -63,6 +63,15 @@ export default function Home() {
     )
   }
 
+  // Don't render anything for super admins - they should be redirected
+  if (user?.role === 'super_admin') {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-xl">Redirecting to admin dashboard...</div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar user={user || null} />
