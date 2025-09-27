@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { withRole } from '@/lib/auth-guards'
 import { ROLES } from '@/lib/rbac'
-import { initializeLawFirm } from '../../../../../scripts/initialize-law-firm'
+import { initializeLawFirmSimple } from '../../../../../scripts/initialize-law-firm-simple'
 
 console.log('🔍 API DEBUG: Admin firms route loaded')
 console.log('🔍 API DEBUG: prisma object =', typeof prisma)
@@ -203,17 +203,17 @@ export const POST = withRole(
       }
 
       // Create law firm using the initialization script
-      console.log('🔍 API DEBUG: About to call initializeLawFirm')
+      console.log('🔍 API DEBUG: About to call initializeLawFirmSimple')
       console.log(
-        '🔍 API DEBUG: initializeLawFirm function exists =',
-        !!initializeLawFirm
+        '🔍 API DEBUG: initializeLawFirmSimple function exists =',
+        !!initializeLawFirmSimple
       )
       console.log(
-        '🔍 API DEBUG: typeof initializeLawFirm =',
-        typeof initializeLawFirm
+        '🔍 API DEBUG: typeof initializeLawFirmSimple =',
+        typeof initializeLawFirmSimple
       )
 
-      const result = await initializeLawFirm({
+      const result = await initializeLawFirmSimple({
         name,
         slug,
         domain,
