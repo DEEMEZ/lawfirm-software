@@ -61,6 +61,7 @@ export default function FirmsManagement() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [isCreating, setIsCreating] = useState(false)
 
   const fetchFirms = useCallback(async () => {
     try {
@@ -91,6 +92,7 @@ export default function FirmsManagement() {
   }, [fetchFirms])
 
   const handleCreateFirm = async (formData: Record<string, unknown>) => {
+    setIsCreating(true)
     try {
       const response = await fetch('/api/admin/firms', {
         method: 'POST',
@@ -102,6 +104,7 @@ export default function FirmsManagement() {
       if (response.ok) {
         setShowCreateModal(false)
         fetchFirms()
+        alert('Law firm created successfully!')
       } else {
         const error = await response.json()
         alert(`Error: ${error.error}`)
@@ -109,6 +112,8 @@ export default function FirmsManagement() {
     } catch (error) {
       console.error('Error creating firm:', error)
       alert('Failed to create law firm')
+    } finally {
+      setIsCreating(false)
     }
   }
 
@@ -473,6 +478,7 @@ export default function FirmsManagement() {
         <CreateFirmModal
           onClose={() => setShowCreateModal(false)}
           onSubmit={handleCreateFirm}
+          isCreating={isCreating}
         />
       )}
     </div>
@@ -483,9 +489,11 @@ export default function FirmsManagement() {
 function CreateFirmModal({
   onClose,
   onSubmit,
+  isCreating,
 }: {
   onClose: () => void
   onSubmit: (data: Record<string, unknown>) => void
+  isCreating: boolean
 }) {
   const [formData, setFormData] = useState({
     name: '',
@@ -500,7 +508,9 @@ function CreateFirmModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    onSubmit(formData)
+    if (!isCreating) {
+      onSubmit(formData)
+    }
   }
 
   // Auto-generate slug from name
@@ -517,7 +527,7 @@ function CreateFirmModal({
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[95vh] overflow-hidden flex flex-col">
         {/* Modal Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div className="flex items-center space-x-3">
@@ -542,7 +552,7 @@ function CreateFirmModal({
         </div>
 
         {/* Modal Body */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
+        <div className="p-6 overflow-y-auto flex-1">
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Firm Information */}
             <div className="space-y-4">
@@ -725,20 +735,29 @@ function CreateFirmModal({
         </div>
 
         {/* Modal Footer */}
-        <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200 bg-gray-50">
+        <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200 bg-gray-50 flex-shrink-0">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            disabled={isCreating}
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Cancel
           </button>
           <button
             type="submit"
             onClick={handleSubmit}
-            className="px-6 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+            disabled={isCreating}
+            className="px-6 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
           >
-            Create Law Firm
+            {isCreating ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                Creating...
+              </>
+            ) : (
+              'Create Law Firm'
+            )}
           </button>
         </div>
       </div>

@@ -6,7 +6,7 @@ import { env } from './env'
 
 // Define proper types for the database entities
 interface UserRole {
-  role: {
+  roles: {
     name: string
   }
 }
@@ -19,9 +19,9 @@ interface LawFirm {
 interface User {
   id: string
   isActive: boolean
-  lawFirmId: string
-  lawFirm: LawFirm
-  userRoles: UserRole[]
+  law_firm_id: string
+  law_firms: LawFirm
+  user_roles: UserRole[]
 }
 
 interface PlatformUser {
@@ -122,14 +122,14 @@ export const authOptions: NextAuthOptions = {
             users: platformUser.users.map((u: User) => ({
               id: u.id,
               isActive: u.isActive,
-              lawFirmName: u.lawFirm.name,
-              lawFirmIsActive: u.lawFirm.isActive,
-              roles: u.userRoles.map((ur: UserRole) => ur.role.name),
+              lawFirmName: u.law_firms.name,
+              lawFirmIsActive: u.law_firms.isActive,
+              roles: u.user_roles.map((ur: UserRole) => ur.roles.name),
             })),
           })
 
           const primaryUser = platformUser.users.find(
-            (user: User) => user.lawFirm.isActive && user.isActive
+            (user: User) => user.law_firms.isActive && user.isActive
           )
 
           if (!primaryUser) {
@@ -137,29 +137,29 @@ export const authOptions: NextAuthOptions = {
             console.log('🔍 NextAuth: Debug info:', {
               hasUsers: platformUser.users.length > 0,
               firstUserActive: platformUser.users[0]?.isActive,
-              firstLawFirmActive: platformUser.users[0]?.lawFirm.isActive,
-              firstUserRoles: platformUser.users[0]?.userRoles.length,
+              firstLawFirmActive: platformUser.users[0]?.law_firms.isActive,
+              firstUserRoles: platformUser.users[0]?.user_roles.length,
             })
             return null
           }
 
           console.log('✅ NextAuth: Primary user found:', {
             userId: primaryUser.id,
-            lawFirmId: primaryUser.lawFirmId,
-            lawFirmName: primaryUser.lawFirm.name,
-            roles: primaryUser.userRoles.map((ur: UserRole) => ur.role.name),
+            lawFirmId: primaryUser.law_firm_id,
+            lawFirmName: primaryUser.law_firms.name,
+            roles: primaryUser.user_roles.map((ur: UserRole) => ur.roles.name),
           })
 
           // Get primary role
-          const primaryRole = primaryUser.userRoles[0]?.role.name || 'user'
+          const primaryRole = primaryUser.user_roles[0]?.roles.name || 'user'
 
           const userObject: CustomUser = {
             id: primaryUser.id,
             email: platformUser.email,
             name: platformUser.name || undefined,
             platformUserId: platformUser.id,
-            lawFirmId: primaryUser.lawFirmId,
-            lawFirmName: primaryUser.lawFirm.name,
+            lawFirmId: primaryUser.law_firm_id,
+            lawFirmName: primaryUser.law_firms.name,
             role: primaryRole,
           }
 
