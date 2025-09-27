@@ -7,6 +7,11 @@ import { withRole } from '@/lib/auth-guards'
 import { ROLES } from '@/lib/rbac'
 import { initializeLawFirm } from '../../../../../scripts/initialize-law-firm'
 
+console.log('🔍 API DEBUG: Admin firms route loaded')
+console.log('🔍 API DEBUG: prisma object =', typeof prisma)
+console.log('🔍 API DEBUG: prisma is undefined =', prisma === undefined)
+console.log('🔍 API DEBUG: prisma.law_firms exists =', !!prisma?.law_firms)
+
 // GET /api/admin/firms - List all law firms
 export const GET = withRole(ROLES.SUPER_ADMIN, async (request: NextRequest) => {
   try {

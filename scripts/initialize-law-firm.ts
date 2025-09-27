@@ -10,6 +10,14 @@ import {
 } from '../src/lib/email'
 import { prisma } from '../src/lib/prisma'
 
+console.log('🔍 INIT SCRIPT DEBUG: Script loaded')
+console.log('🔍 INIT SCRIPT DEBUG: prisma object =', typeof prisma)
+console.log('🔍 INIT SCRIPT DEBUG: prisma is undefined =', prisma === undefined)
+console.log(
+  '🔍 INIT SCRIPT DEBUG: prisma.law_firms exists =',
+  !!prisma?.law_firms
+)
+
 interface InitializeLawFirmParams {
   name: string
   slug: string
@@ -48,6 +56,21 @@ export async function initializeLawFirm(params: InitializeLawFirmParams) {
       async (tx: PrismaTransactionClient) => {
         // 1. Create the law firm
         console.log('🏗️ Creating law firm...')
+        console.log('🔍 TX DEBUG: tx object =', typeof tx)
+        console.log('🔍 TX DEBUG: tx.law_firms exists =', !!tx.law_firms)
+        console.log(
+          '🔍 TX DEBUG: tx.law_firms.create exists =',
+          !!tx.law_firms?.create
+        )
+
+        if (!tx.law_firms?.create) {
+          console.error('💥 TX DEBUG: tx.law_firms.create is undefined!')
+          console.error('💥 TX DEBUG: Available tx methods =', Object.keys(tx))
+          throw new Error(
+            'Prisma transaction client is missing law_firms.create method'
+          )
+        }
+
         const lawFirm = await tx.law_firms.create({
           data: {
             id: randomUUID(),
