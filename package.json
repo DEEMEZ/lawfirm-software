@@ -16,6 +16,7 @@
     "db:test": "node scripts/test-db-connection.js",
     "db:setup": "npx prisma migrate dev && npx prisma generate",
     "db:setup-rls": "node scripts/setup-rls.js",
+    "postinstall": "prisma generate",
     "test:tenant-context": "node scripts/test-tenant-context.js",
     "init-firm": "node scripts/initialize-law-firm.js",
     "test:rbac": "node scripts/test-rbac.js",
