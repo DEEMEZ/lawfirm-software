@@ -1,19 +1,20 @@
 //  node scripts/create-superadmin.js
 import { PrismaClient } from '@prisma/client'
 import bcrypt from 'bcryptjs'
+import { randomUUID } from 'crypto'
 
 const prisma = new PrismaClient()
 
 async function createSuperAdmin() {
   try {
-    const email = 'alirayyan001@gmail.com'
-    const password = 'alirayyan001'
-    const name = 'Ali Rayyan'
+    const email = 'superadmin@lawfirm.com'
+    const password = 'superadmin123'
+    const name = 'Super Admin'
 
     console.log('🚀 Creating superadmin user...')
 
     // Check if user already exists
-    const existingUser = await prisma.platformUser.findUnique({
+    const existingUser = await prisma.platform_users.findUnique({
       where: { email },
     })
 
@@ -26,12 +27,14 @@ async function createSuperAdmin() {
     const hashedPassword = await bcrypt.hash(password, 12)
 
     // Create the platform user
-    const platformUser = await prisma.platformUser.create({
+    const platformUser = await prisma.platform_users.create({
       data: {
+        id: randomUUID(),
         email,
         password: hashedPassword,
         name,
         isActive: true,
+        updatedAt: new Date(),
       },
     })
 

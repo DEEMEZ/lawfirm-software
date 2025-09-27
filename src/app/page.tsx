@@ -72,10 +72,19 @@ export default function Home() {
     )
   }
 
+  // Don't render anything for law firm users - they should be redirected
+  if (user && user.lawFirmId && user.lawFirmId !== '') {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-xl">Redirecting to dashboard...</div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar user={user || null} />
-      {user ? <Dashboard user={user} /> : <LandingPage />}
+      <LandingPage />
     </div>
   )
 }
