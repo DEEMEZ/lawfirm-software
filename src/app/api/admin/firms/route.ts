@@ -111,7 +111,9 @@ export const POST = withRole(
   ROLES.SUPER_ADMIN,
   async (request: NextRequest) => {
     try {
+      console.log('🔍 API DEBUG: POST /api/admin/firms - Starting')
       const body = await request.json()
+      console.log('🔍 API DEBUG: Request body parsed successfully')
       const {
         name,
         slug,
@@ -160,6 +162,12 @@ export const POST = withRole(
       }
 
       // Check if slug or domain already exists
+      console.log('🔍 API DEBUG: About to check for existing firms')
+      console.log(
+        '🔍 API DEBUG: prisma.law_firms.findFirst exists =',
+        !!prisma.law_firms.findFirst
+      )
+
       const whereConditions: Array<{ slug?: string; domain?: string }> = [
         { slug },
       ]
