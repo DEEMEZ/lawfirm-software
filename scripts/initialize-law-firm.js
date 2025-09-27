@@ -5,7 +5,7 @@
 let PrismaClient
 try {
   // Use dynamic import instead of require
-  const prismaModule = await import('../src/generated/prisma')
+  const prismaModule = await import('@prisma/client')
   PrismaClient = prismaModule.PrismaClient
 } catch {
   console.error('⚠️ Prisma client not found. Run "npx prisma generate" first.')
@@ -18,7 +18,9 @@ try {
   const bcryptModule = await import('bcryptjs')
   bcrypt = bcryptModule.default
 } catch {
-  console.error('⚠️ bcryptjs not found. It should be installed as a dependency.')
+  console.error(
+    '⚠️ bcryptjs not found. It should be installed as a dependency.'
+  )
   process.exit(1)
 }
 
@@ -27,43 +29,84 @@ const prisma = new PrismaClient()
 // Default role permissions (simplified for JS)
 const ROLE_PERMISSIONS = {
   owner: [
-    'users.view', 'users.create', 'users.edit', 'users.delete', 'users.manage_roles',
-    'cases.view', 'cases.view_all', 'cases.create', 'cases.edit', 'cases.delete', 'cases.assign',
-    'documents.view', 'documents.upload', 'documents.edit', 'documents.delete', 'documents.manage_permissions',
-    'calendar.view', 'calendar.view_all', 'calendar.create', 'calendar.edit', 'calendar.delete',
-    'tasks.view', 'tasks.create', 'tasks.edit', 'tasks.delete', 'tasks.assign',
-    'admin.firm_settings', 'admin.workspaces', 'admin.audit_logs'
+    'users.view',
+    'users.create',
+    'users.edit',
+    'users.delete',
+    'users.manage_roles',
+    'cases.view',
+    'cases.view_all',
+    'cases.create',
+    'cases.edit',
+    'cases.delete',
+    'cases.assign',
+    'documents.view',
+    'documents.upload',
+    'documents.edit',
+    'documents.delete',
+    'documents.manage_permissions',
+    'calendar.view',
+    'calendar.view_all',
+    'calendar.create',
+    'calendar.edit',
+    'calendar.delete',
+    'tasks.view',
+    'tasks.create',
+    'tasks.edit',
+    'tasks.delete',
+    'tasks.assign',
+    'admin.firm_settings',
+    'admin.workspaces',
+    'admin.audit_logs',
   ],
   senior_lawyer: [
-    'cases.view_all', 'cases.create', 'cases.edit', 'cases.assign',
-    'documents.view', 'documents.upload', 'documents.edit',
-    'calendar.view_all', 'calendar.create', 'calendar.edit',
-    'tasks.view', 'tasks.create', 'tasks.edit', 'tasks.assign',
-    'users.view'
+    'cases.view_all',
+    'cases.create',
+    'cases.edit',
+    'cases.assign',
+    'documents.view',
+    'documents.upload',
+    'documents.edit',
+    'calendar.view_all',
+    'calendar.create',
+    'calendar.edit',
+    'tasks.view',
+    'tasks.create',
+    'tasks.edit',
+    'tasks.assign',
+    'users.view',
   ],
   junior_lawyer: [
-    'cases.view', 'cases.edit',
-    'documents.view', 'documents.upload', 'documents.edit',
-    'calendar.view', 'calendar.create', 'calendar.edit',
-    'tasks.view', 'tasks.create', 'tasks.edit'
+    'cases.view',
+    'cases.edit',
+    'documents.view',
+    'documents.upload',
+    'documents.edit',
+    'calendar.view',
+    'calendar.create',
+    'calendar.edit',
+    'tasks.view',
+    'tasks.create',
+    'tasks.edit',
   ],
   assistant: [
     'cases.view',
-    'documents.view', 'documents.upload',
-    'calendar.view', 'calendar.create', 'calendar.edit',
-    'tasks.view', 'tasks.edit'
+    'documents.view',
+    'documents.upload',
+    'calendar.view',
+    'calendar.create',
+    'calendar.edit',
+    'tasks.view',
+    'tasks.edit',
   ],
   secretary: [
     'cases.view',
     'documents.view',
-    'calendar.view', 'calendar.create',
-    'tasks.view'
+    'calendar.view',
+    'calendar.create',
+    'tasks.view',
   ],
-  client: [
-    'cases.view',
-    'documents.view',
-    'calendar.view'
-  ]
+  client: ['cases.view', 'documents.view', 'calendar.view'],
 }
 
 // Main initialization function
@@ -72,7 +115,7 @@ async function initializeLawFirm(params) {
 
   try {
     // Start transaction
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async tx => {
       // 1. Create the law firm
       console.log('🏗️ Creating law firm...')
       const lawFirm = await tx.lawFirm.create({
@@ -93,16 +136,16 @@ async function initializeLawFirm(params) {
               thursday: { start: '09:00', end: '17:00' },
               friday: { start: '09:00', end: '17:00' },
               saturday: { closed: true },
-              sunday: { closed: true }
+              sunday: { closed: true },
             },
             features: {
               clientPortal: true,
               documentSharing: true,
               calendarIntegration: true,
-              emailNotifications: true
-            }
-          }
-        }
+              emailNotifications: true,
+            },
+          },
+        },
       })
 
       // 2. Create default roles for the law firm
@@ -114,7 +157,7 @@ async function initializeLawFirm(params) {
       const hashedPassword = await bcrypt.hash(params.ownerPassword, 12)
 
       let platformUser = await tx.platformUser.findUnique({
-        where: { email: params.ownerEmail }
+        where: { email: params.ownerEmail },
       })
 
       if (!platformUser) {
@@ -123,8 +166,8 @@ async function initializeLawFirm(params) {
             email: params.ownerEmail,
             password: hashedPassword,
             name: `${params.ownerFirstName} ${params.ownerLastName}`,
-            isActive: true
-          }
+            isActive: true,
+          },
         })
       }
 
@@ -135,8 +178,8 @@ async function initializeLawFirm(params) {
           lawFirmId: lawFirm.id,
           platformUserId: platformUser.id,
           isActive: true,
-          joinedAt: new Date()
-        }
+          joinedAt: new Date(),
+        },
       })
 
       // 5. Assign owner role to user
@@ -147,8 +190,8 @@ async function initializeLawFirm(params) {
             lawFirmId: lawFirm.id,
             userId: user.id,
             roleId: ownerRole.id,
-            assignedBy: user.id // Self-assigned during setup
-          }
+            assignedBy: user.id, // Self-assigned during setup
+          },
         })
       }
 
@@ -157,7 +200,7 @@ async function initializeLawFirm(params) {
         platformUser,
         user,
         roles,
-        ownerRole
+        ownerRole,
       }
     })
 
@@ -168,7 +211,6 @@ async function initializeLawFirm(params) {
     console.log(`👥 Roles created: ${result.roles.length}`)
 
     return result
-
   } catch (error) {
     console.error('⚠️ Error initializing law firm:', error)
     throw error
@@ -184,38 +226,38 @@ async function createDefaultRoles(tx, lawFirmId) {
       name: 'Owner',
       description: 'Law firm owner with full access',
       permissions: ROLE_PERMISSIONS.owner,
-      isSystem: true
+      isSystem: true,
     },
     {
       name: 'Senior Lawyer',
       description: 'Senior lawyer with management capabilities',
       permissions: ROLE_PERMISSIONS.senior_lawyer,
-      isSystem: true
+      isSystem: true,
     },
     {
       name: 'Junior Lawyer',
       description: 'Junior lawyer with basic case access',
       permissions: ROLE_PERMISSIONS.junior_lawyer,
-      isSystem: true
+      isSystem: true,
     },
     {
       name: 'Assistant',
       description: 'Legal assistant with administrative access',
       permissions: ROLE_PERMISSIONS.assistant,
-      isSystem: true
+      isSystem: true,
     },
     {
       name: 'Secretary',
       description: 'Secretary with basic administrative access',
       permissions: ROLE_PERMISSIONS.secretary,
-      isSystem: true
+      isSystem: true,
     },
     {
       name: 'Client',
       description: 'Client with limited read-only access',
       permissions: ROLE_PERMISSIONS.client,
-      isSystem: true
-    }
+      isSystem: true,
+    },
   ]
 
   const createdRoles = []
@@ -226,8 +268,8 @@ async function createDefaultRoles(tx, lawFirmId) {
         name: roleData.name,
         description: roleData.description,
         permissions: roleData.permissions,
-        isSystem: roleData.isSystem
-      }
+        isSystem: roleData.isSystem,
+      },
     })
     createdRoles.push(role)
     console.log(`  ✅ Created role: ${roleData.name}`)
@@ -291,13 +333,20 @@ Example:
   // Validate slug format (URL-safe)
   const slugRegex = /^[a-z0-9-]+$/
   if (!slugRegex.test(params.slug)) {
-    console.error('⚠️ Invalid slug format. Use lowercase letters, numbers, and hyphens only.')
+    console.error(
+      '⚠️ Invalid slug format. Use lowercase letters, numbers, and hyphens only.'
+    )
     return
   }
 
   // Validate plan if provided
-  if (params.plan && !['STARTER', 'PROFESSIONAL', 'ENTERPRISE'].includes(params.plan)) {
-    console.error('⚠️ Invalid plan. Must be STARTER, PROFESSIONAL, or ENTERPRISE')
+  if (
+    params.plan &&
+    !['STARTER', 'PROFESSIONAL', 'ENTERPRISE'].includes(params.plan)
+  ) {
+    console.error(
+      '⚠️ Invalid plan. Must be STARTER, PROFESSIONAL, or ENTERPRISE'
+    )
     return
   }
 
@@ -310,7 +359,7 @@ Example:
       ownerEmail: params.email,
       ownerPassword: params.password,
       ownerFirstName: params.first,
-      ownerLastName: params.last
+      ownerLastName: params.last,
     })
   } catch (error) {
     console.error('⚠️ Failed to initialize law firm:', error)

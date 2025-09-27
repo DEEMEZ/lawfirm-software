@@ -15,20 +15,20 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   return withRole(ROLES.SUPER_ADMIN, async () => {
     try {
       const { id } = await params
-      const firm = await prisma.lawFirm.findUnique({
+      const firm = await prisma.law_firms.findUnique({
         where: { id },
         include: {
           users: {
             include: {
-              platformUser: {
+              platform_users: {
                 select: {
                   email: true,
                   name: true,
                 },
               },
-              userRoles: {
+              user_roles: {
                 include: {
-                  role: {
+                  roles: {
                     select: {
                       name: true,
                     },
@@ -68,11 +68,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const users = firm.users.map((user: any) => ({
         id: user.id,
-        email: user.platformUser.email,
-        name: user.platformUser.name,
+        email: user.platform_users.email,
+        name: user.platform_users.name,
         isActive: user.isActive,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        roles: user.userRoles.map((ur: any) => ur.role.name),
+        roles: user.user_roles.map((ur: any) => ur.roles.name),
         joinedAt: user.joinedAt,
       }))
 
@@ -121,7 +121,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       if (isActive !== undefined) updateData.isActive = isActive
       if (settings !== undefined) updateData.settings = settings
 
-      const firm = await prisma.lawFirm.update({
+      const firm = await prisma.law_firms.update({
         where: { id },
         data: updateData,
       })
@@ -152,25 +152,25 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         // Permanent deletion - delete all related data in transaction
         await prisma.$transaction(async tx => {
           // First get all platform user IDs associated with this law firm
-          const firmUsers = await tx.user.findMany({
-            where: { lawFirmId: id },
-            select: { platformUserId: true },
+          const firmUsers = await tx.users.findMany({
+            where: { law_firm_id: id },
+            select: { platform_user_id: true },
           })
-          const platformUserIds = firmUsers.map(u => u.platformUserId)
+          const platformUserIds = firmUsers.map(u => u.platform_user_id)
 
           // Delete user roles first
-          await tx.userRole.deleteMany({
-            where: { lawFirmId: id },
+          await tx.user_roles.deleteMany({
+            where: { law_firm_id: id },
           })
 
           // Delete users
-          await tx.user.deleteMany({
-            where: { lawFirmId: id },
+          await tx.users.deleteMany({
+            where: { law_firm_id: id },
           })
 
           // Delete associated platform users (but not super admin)
           if (platformUserIds.length > 0) {
-            await tx.platformUser.deleteMany({
+            await tx.platform_users.deleteMany({
               where: {
                 id: { in: platformUserIds },
                 // Don't delete super admin or users without email ending in common domains
@@ -180,35 +180,25 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
           }
 
           // Delete roles
-          await tx.role.deleteMany({
-            where: { lawFirmId: id },
+          await tx.roles.deleteMany({
+            where: { law_firm_id: id },
           })
 
-          // Delete cases and related data
-          const cases = await tx.case.findMany({
-            where: { lawFirmId: id },
-            select: { id: true },
-          })
-
-          for (const case_ of cases) {
-            // Delete case assignments
-            await tx.caseAssignment.deleteMany({
-              where: { caseId: case_.id },
-            })
-          }
+          // Note: case assignments model doesn't exist in current schema
+          // This would be implemented when case assignments are added
 
           // Delete cases
-          await tx.case.deleteMany({
-            where: { lawFirmId: id },
+          await tx.cases.deleteMany({
+            where: { law_firm_id: id },
           })
 
           // Delete documents
-          await tx.document.deleteMany({
-            where: { lawFirmId: id },
+          await tx.documents.deleteMany({
+            where: { law_firm_id: id },
           })
 
           // Finally delete the law firm
-          await tx.lawFirm.delete({
+          await tx.law_firms.delete({
             where: { id },
           })
         })
@@ -218,7 +208,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         })
       } else {
         // Default: just deactivate
-        const firm = await prisma.lawFirm.update({
+        const firm = await prisma.law_firms.update({
           where: { id },
           data: { isActive: false },
         })

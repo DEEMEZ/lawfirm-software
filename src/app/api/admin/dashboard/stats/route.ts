@@ -42,23 +42,23 @@ export async function GET() {
       recentSignups,
     ] = await Promise.all([
       // Total law firms
-      prisma.lawFirm.count(),
+      prisma.law_firms.count(),
 
       // Active law firms
-      prisma.lawFirm.count({
+      prisma.law_firms.count({
         where: { isActive: true },
       }),
 
       // Suspended law firms
-      prisma.lawFirm.count({
+      prisma.law_firms.count({
         where: { isActive: false },
       }),
 
       // Total users
-      prisma.user.count(),
+      prisma.users.count(),
 
       // Active users
-      prisma.user.count({
+      prisma.users.count({
         where: { isActive: true },
       }),
 
@@ -69,7 +69,7 @@ export async function GET() {
       Promise.resolve(0),
 
       // Recent signups (last 30 days)
-      prisma.lawFirm.count({
+      prisma.law_firms.count({
         where: {
           createdAt: {
             gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),

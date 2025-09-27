@@ -36,7 +36,7 @@ export const GET = withRole(ROLES.SUPER_ADMIN, async (request: NextRequest) => {
 
     // Get firms with counts
     const [firms, totalCount] = await Promise.all([
-      prisma.lawFirm.findMany({
+      prisma.law_firms.findMany({
         where,
         include: {
           users: {
@@ -57,7 +57,7 @@ export const GET = withRole(ROLES.SUPER_ADMIN, async (request: NextRequest) => {
         skip,
         take: limit,
       }),
-      prisma.lawFirm.count({ where }),
+      prisma.law_firms.count({ where }),
     ])
 
     // Transform data for response
@@ -155,14 +155,16 @@ export const POST = withRole(
       }
 
       // Check if slug or domain already exists
-      const whereConditions = [{ slug }]
+      const whereConditions: Array<{ slug?: string; domain?: string }> = [
+        { slug },
+      ]
 
       // Only add domain check if domain is provided and not empty
       if (domain && domain.trim()) {
         whereConditions.push({ domain: domain.trim() })
       }
 
-      const existing = await prisma.lawFirm.findFirst({
+      const existing = await prisma.law_firms.findFirst({
         where: {
           OR: whereConditions,
         },

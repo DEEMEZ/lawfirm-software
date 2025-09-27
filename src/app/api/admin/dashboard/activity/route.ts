@@ -31,7 +31,7 @@ export async function GET() {
     console.log('✅ Admin Activity API - Access granted for superadmin')
 
     // Get recent law firm signups (as activities)
-    const recentFirms = await prisma.lawFirm.findMany({
+    const recentFirms = await prisma.law_firms.findMany({
       take: 10,
       orderBy: { createdAt: 'desc' },
       select: {

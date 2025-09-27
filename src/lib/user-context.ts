@@ -7,20 +7,20 @@ import { UserContext, Role, ROLE_PERMISSIONS } from './rbac'
 // Get user with their current permissions
 export async function getUserWithPermissions(
   userId: string,
-  lawFirmId: string
+  law_firm_id: string
 ): Promise<UserContext | null> {
   try {
     // Get user with their roles and law firm
-    const user = await prisma.user.findFirst({
+    const user = await prisma.users.findFirst({
       where: {
         id: userId,
-        lawFirmId: lawFirmId,
+        law_firm_id: law_firm_id,
         isActive: true,
       },
       include: {
-        userRoles: {
+        user_roles: {
           include: {
-            role: {
+            roles: {
               select: {
                 name: true,
                 permissions: true,
@@ -28,7 +28,7 @@ export async function getUserWithPermissions(
             },
           },
         },
-        lawFirm: {
+        law_firms: {
           select: {
             isActive: true,
           },
@@ -36,15 +36,15 @@ export async function getUserWithPermissions(
       },
     })
 
-    if (!user || !user.lawFirm?.isActive) {
+    if (!user || !user.law_firms?.isActive) {
       return null
     }
 
     // Get primary role (highest level role)
-    const userRoles = user.userRoles
+    const userRoles = user.user_roles
       .map(
-        (ur: { role: { name: string } }) =>
-          ur.role.name.toLowerCase().replace(/\s+/g, '_') as Role
+        (ur: { roles: { name: string } }) =>
+          ur.roles.name.toLowerCase().replace(/\s+/g, '_') as Role
       )
       .filter(Boolean)
 
@@ -66,16 +66,18 @@ export async function getUserWithPermissions(
     })
 
     // Add custom permissions from database roles
-    user.userRoles.forEach((userRole: { role: { permissions?: unknown } }) => {
-      const customPermissions = (userRole.role.permissions as string[]) || []
-      customPermissions.forEach((permission: string) =>
-        allPermissions.add(permission)
-      )
-    })
+    user.user_roles.forEach(
+      (userRole: { roles: { permissions?: unknown } }) => {
+        const customPermissions = (userRole.roles.permissions as string[]) || []
+        customPermissions.forEach((permission: string) =>
+          allPermissions.add(permission)
+        )
+      }
+    )
 
     return {
       id: user.id,
-      lawFirmId: user.lawFirmId,
+      lawFirmId: user.law_firm_id,
       role: primaryRole,
       permissions: Array.from(allPermissions),
       isActive: user.isActive,
@@ -91,7 +93,7 @@ export async function getPlatformUserContext(
   platformUserId: string
 ): Promise<UserContext | null> {
   try {
-    const platformUser = await prisma.platformUser.findFirst({
+    const platformUser = await prisma.platform_users.findFirst({
       where: {
         id: platformUserId,
         isActive: true,
@@ -153,17 +155,17 @@ function getPrimaryRole(roles: Role[]): Role | null {
 // Check if user can access a specific law firm
 export async function canAccessLawFirm(
   userId: string,
-  lawFirmId: string
+  law_firm_id: string
 ): Promise<boolean> {
   try {
-    const user = await prisma.user.findFirst({
+    const user = await prisma.users.findFirst({
       where: {
         id: userId,
-        lawFirmId: lawFirmId,
+        law_firm_id: law_firm_id,
         isActive: true,
       },
       include: {
-        lawFirm: {
+        law_firms: {
           select: {
             isActive: true,
           },
@@ -171,7 +173,7 @@ export async function canAccessLawFirm(
       },
     })
 
-    return user?.lawFirm?.isActive === true
+    return user?.law_firms?.isActive === true
   } catch (error) {
     console.error('Error checking law firm access:', error)
     return false
@@ -186,7 +188,7 @@ export async function getUserAccessibleLawFirms(
   try {
     if (isPlatformUser) {
       // Platform users can access all law firms
-      const lawFirms = await prisma.lawFirm.findMany({
+      const lawFirms = await prisma.law_firms.findMany({
         where: { isActive: true },
         select: {
           id: true,
@@ -199,13 +201,13 @@ export async function getUserAccessibleLawFirms(
     }
 
     // Regular users can only access their own law firm
-    const user = await prisma.user.findFirst({
+    const user = await prisma.users.findFirst({
       where: {
         id: userId,
         isActive: true,
       },
       include: {
-        lawFirm: {
+        law_firms: {
           select: {
             id: true,
             name: true,
@@ -215,7 +217,7 @@ export async function getUserAccessibleLawFirms(
       },
     })
 
-    return user?.lawFirm ? [user.lawFirm] : []
+    return user?.law_firms ? [user.law_firms] : []
   } catch (error) {
     console.error('Error getting accessible law firms:', error)
     return []
@@ -225,10 +227,10 @@ export async function getUserAccessibleLawFirms(
 // Refresh user permissions (call after role changes)
 export async function refreshUserPermissions(
   userId: string,
-  lawFirmId: string
+  law_firm_id: string
 ): Promise<UserContext | null> {
   // Clear any caches here if you implement caching
-  return getUserWithPermissions(userId, lawFirmId)
+  return getUserWithPermissions(userId, law_firm_id)
 }
 
 // TODO: Workspace functionality will be implemented in future phases
@@ -236,7 +238,7 @@ export async function refreshUserPermissions(
 
 // Get user's workspace memberships (placeholder)
 export async function getUserWorkspaces(): Promise<
-  { id: string; name: string; role: string }[]
+  { id: string; name: string; roles: string }[]
 > {
   // TODO: Implement when workspace tables are added to schema
   console.log(
@@ -258,7 +260,7 @@ export async function canAccessWorkspace(): Promise<boolean> {
 export async function getUserWorkspaceRole(): Promise<string | null> {
   // TODO: Implement when workspace tables are added to schema
   console.log(
-    'getUserWorkspaceRole: Not implemented yet - workspace tables not in current schema'
+    'getUserWorkspaceroles: Not implemented yet - workspace tables not in current schema'
   )
   return null
 }

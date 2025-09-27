@@ -1,12 +1,6 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
-  output   = "../src/generated/prisma"
+  output   = "../node_modules/.prisma/client"
 }
 
 datasource db {
@@ -14,151 +8,130 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Global platform users (before tenant assignment)
-model PlatformUser {
-  id        String   @id @default(cuid())
+model cases {
+  id                 String      @id
+  law_firm_id        String
+  client_id          String
+  title              String
+  description        String?
+  status             CaseStatus  @default(OPEN)
+  practice_area      String?
+  assigned_lawyer_id String?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime
+  clients            clients     @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  law_firms          law_firms   @relation(fields: [law_firm_id], references: [id], onDelete: Cascade)
+  documents          documents[]
+}
+
+model clients {
+  id          String      @id
+  law_firm_id String
+  email       String
+  first_name  String
+  last_name   String
+  phone       String?
+  address     Json?
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime
+  cases       cases[]
+  law_firms   law_firms   @relation(fields: [law_firm_id], references: [id], onDelete: Cascade)
+  documents   documents[]
+
+  @@unique([law_firm_id, email])
+}
+
+model documents {
+  id          String    @id
+  law_firm_id String
+  case_id     String?
+  client_id   String?
+  name        String
+  description String?
+  file_path   String
+  file_size   BigInt
+  mime_type   String
+  uploaded_by String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime
+  cases       cases?    @relation(fields: [case_id], references: [id])
+  clients     clients?  @relation(fields: [client_id], references: [id])
+  law_firms   law_firms @relation(fields: [law_firm_id], references: [id], onDelete: Cascade)
+}
+
+model law_firms {
+  id         String       @id
+  name       String
+  slug       String       @unique
+  domain     String?      @unique
+  isActive   Boolean      @default(true)
+  plan       FirmPlan     @default(STARTER)
+  settings   Json?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime
+  cases      cases[]
+  clients    clients[]
+  documents  documents[]
+  roles      roles[]
+  user_roles user_roles[]
+  users      users[]
+}
+
+model platform_users {
+  id        String   @id
   email     String   @unique
   password  String
   name      String?
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  users User[] // Can be associated with multiple firms
-
-  @@map("platform_users")
+  updatedAt DateTime
+  users     users[]
 }
 
-// Law firms (tenants)
-model LawFirm {
-  id          String   @id @default(cuid())
-  name        String
-  slug        String   @unique
-  domain      String?  @unique
-  isActive    Boolean  @default(true)
-  plan        FirmPlan @default(STARTER)
-  settings    Json?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  users       User[]
-  roles       Role[]
-  userRoles   UserRole[]
-  clients     Client[]
-  cases       Case[]
-  documents   Document[]
-
-  @@map("law_firms")
-}
-
-enum FirmPlan {
-  STARTER
-  PROFESSIONAL
-  ENTERPRISE
-}
-
-// Firm-specific user profiles
-model User {
-  id            String   @id @default(cuid())
-  lawFirmId     String   @map("law_firm_id")
-  platformUserId String  @map("platform_user_id")
-  isActive      Boolean  @default(true)
-  invitedAt     DateTime @default(now())
-  joinedAt      DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  // Relations
-  lawFirm       LawFirm      @relation(fields: [lawFirmId], references: [id], onDelete: Cascade)
-  platformUser  PlatformUser @relation(fields: [platformUserId], references: [id], onDelete: Cascade)
-  userRoles     UserRole[]
-
-  @@unique([lawFirmId, platformUserId])
-  @@map("users")
-}
-
-// Role definitions per firm
-model Role {
-  id          String   @id @default(cuid())
-  lawFirmId   String   @map("law_firm_id")
+model roles {
+  id          String       @id
+  law_firm_id String
   name        String
   description String?
-  permissions Json     // Array of permission strings
-  isSystem    Boolean  @default(false) // System roles cannot be deleted
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  permissions Json
+  isSystem    Boolean      @default(false)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime
+  law_firms   law_firms    @relation(fields: [law_firm_id], references: [id], onDelete: Cascade)
+  user_roles  user_roles[]
 
-  // Relations
-  lawFirm   LawFirm    @relation(fields: [lawFirmId], references: [id], onDelete: Cascade)
-  userRoles UserRole[]
-
-  @@unique([lawFirmId, name])
-  @@map("roles")
+  @@unique([law_firm_id, name])
 }
 
-// User-Role assignments
-model UserRole {
-  id        String   @id @default(cuid())
-  lawFirmId String   @map("law_firm_id")
-  userId    String   @map("user_id")
-  roleId    String   @map("role_id")
-  assignedAt DateTime @default(now())
-  assignedBy String?  @map("assigned_by") // User ID who assigned this role
+model user_roles {
+  id          String    @id
+  law_firm_id String
+  user_id     String
+  role_id     String
+  assignedAt  DateTime  @default(now())
+  assigned_by String?
+  law_firms   law_firms @relation(fields: [law_firm_id], references: [id], onDelete: Cascade)
+  roles       roles     @relation(fields: [role_id], references: [id], onDelete: Cascade)
+  users       users     @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
-  // Relations
-  lawFirm LawFirm @relation(fields: [lawFirmId], references: [id], onDelete: Cascade)
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role    Role    @relation(fields: [roleId], references: [id], onDelete: Cascade)
-
-  @@unique([lawFirmId, userId, roleId])
-  @@map("user_roles")
+  @@unique([law_firm_id, user_id, role_id])
 }
 
-// Core business entities (all tenant-scoped)
+model users {
+  id               String         @id
+  law_firm_id      String
+  platform_user_id String
+  isActive         Boolean        @default(true)
+  invitedAt        DateTime       @default(now())
+  joinedAt         DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime
+  user_roles       user_roles[]
+  law_firms        law_firms      @relation(fields: [law_firm_id], references: [id], onDelete: Cascade)
+  platform_users   platform_users @relation(fields: [platform_user_id], references: [id], onDelete: Cascade)
 
-// Clients
-model Client {
-  id          String   @id @default(cuid())
-  lawFirmId   String   @map("law_firm_id")
-  email       String
-  firstName   String   @map("first_name")
-  lastName    String   @map("last_name")
-  phone       String?
-  address     Json?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  lawFirm   LawFirm    @relation(fields: [lawFirmId], references: [id], onDelete: Cascade)
-  cases     Case[]
-  documents Document[]
-
-  @@unique([lawFirmId, email])
-  @@map("clients")
-}
-
-// Cases/Matters
-model Case {
-  id              String     @id @default(cuid())
-  lawFirmId       String     @map("law_firm_id")
-  clientId        String     @map("client_id")
-  title           String
-  description     String?
-  status          CaseStatus @default(OPEN)
-  practiceArea    String?    @map("practice_area")
-  assignedLawyerId String?   @map("assigned_lawyer_id")
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
-
-  // Relations
-  lawFirm   LawFirm    @relation(fields: [lawFirmId], references: [id], onDelete: Cascade)
-  client    Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  documents Document[]
-
-  @@map("cases")
+  @@unique([law_firm_id, platform_user_id])
 }
 
 enum CaseStatus {
@@ -168,25 +141,8 @@ enum CaseStatus {
   ARCHIVED
 }
 
-// Documents
-model Document {
-  id          String   @id @default(cuid())
-  lawFirmId   String   @map("law_firm_id")
-  caseId      String?  @map("case_id")
-  clientId    String?  @map("client_id")
-  name        String
-  description String?
-  filePath    String   @map("file_path")
-  fileSize    BigInt   @map("file_size")
-  mimeType    String   @map("mime_type")
-  uploadedBy  String   @map("uploaded_by")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  lawFirm LawFirm @relation(fields: [lawFirmId], references: [id], onDelete: Cascade)
-  case    Case?   @relation(fields: [caseId], references: [id], onDelete: SetNull)
-  client  Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
-
-  @@map("documents")
+enum FirmPlan {
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
 }

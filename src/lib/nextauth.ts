@@ -60,15 +60,15 @@ export const authOptions: NextAuthOptions = {
           console.log('🔍 NextAuth: Attempting login for:', credentials.email)
 
           // Find platform user
-          const platformUser = (await prisma.platformUser.findUnique({
+          const platformUser = (await prisma.platform_users.findUnique({
             where: { email: credentials.email },
             include: {
               users: {
                 include: {
-                  lawFirm: true,
-                  userRoles: {
+                  law_firms: true,
+                  user_roles: {
                     include: {
-                      role: true,
+                      roles: true,
                     },
                   },
                 },

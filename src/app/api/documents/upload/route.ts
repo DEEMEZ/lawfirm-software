@@ -2,6 +2,7 @@
 // Purpose: Upload files through server to R2 (bypasses CORS issues)
 
 import { NextRequest, NextResponse } from 'next/server'
+import { randomUUID } from 'crypto'
 import { withAuth } from '@/lib/auth-guards'
 import { storageService, FileValidation } from '@/lib/storage'
 import { PERMISSIONS, requirePermission } from '@/lib/rbac'
@@ -62,16 +63,18 @@ export const POST = withAuth(async (request: NextRequest, userContext) => {
     }
 
     // Save document metadata to database
-    const document = await prisma.document.create({
+    const document = await prisma.documents.create({
       data: {
-        lawFirmId: userContext.lawFirmId,
+        id: randomUUID(),
+        law_firm_id: userContext.lawFirmId,
         name: file.name,
         description: `Uploaded via dashboard`,
-        filePath: uploadResult.key, // Store the R2 key as file path
-        fileSize: BigInt(file.size),
-        mimeType: file.type,
-        uploadedBy: userContext.id,
-        // caseId and clientId can be null for general documents
+        file_path: uploadResult.key, // Store the R2 key as file path
+        file_size: BigInt(file.size),
+        mime_type: file.type,
+        uploaded_by: userContext.id,
+        updatedAt: new Date(),
+        // case_id and client_id can be null for general documents
       },
     })
 
@@ -82,10 +85,10 @@ export const POST = withAuth(async (request: NextRequest, userContext) => {
         id: document.id,
         key: uploadResult.key,
         fileName: file.name,
-        fileSize: file.size,
-        mimeType: file.type,
+        file_size: file.size,
+        mime_type: file.type,
         uploadedAt: document.createdAt.toISOString(),
-        uploadedBy: userContext.id,
+        uploaded_by: userContext.id,
       },
       metadata: uploadResult.metadata,
     })

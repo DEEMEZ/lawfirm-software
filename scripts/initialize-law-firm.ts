@@ -1,6 +1,7 @@
 // Law Firm Initialization Script
 // Purpose: One-click firm setup with default workspace, roles, settings, and categories
 
+import { randomUUID } from 'crypto'
 import { ROLES, ROLE_PERMISSIONS } from '../src/lib/rbac'
 import { hashPassword } from '../src/lib/auth'
 import {
@@ -47,8 +48,9 @@ export async function initializeLawFirm(params: InitializeLawFirmParams) {
       async (tx: PrismaTransactionClient) => {
         // 1. Create the law firm
         console.log('🏗️ Creating law firm...')
-        const lawFirm = await tx.lawFirm.create({
+        const lawFirm = await tx.law_firms.create({
           data: {
+            id: randomUUID(),
             name: params.name,
             slug: params.slug,
             domain: params.domain,
@@ -74,6 +76,7 @@ export async function initializeLawFirm(params: InitializeLawFirmParams) {
                 emailNotifications: true,
               },
             },
+            updatedAt: new Date(),
           },
         })
 
@@ -85,41 +88,46 @@ export async function initializeLawFirm(params: InitializeLawFirmParams) {
         console.log('🔐 Creating platform user...')
         const hashedPassword = await hashPassword(params.ownerPassword)
 
-        let platformUser = await tx.platformUser.findUnique({
+        let platformUser = await tx.platform_users.findUnique({
           where: { email: params.ownerEmail },
         })
 
         if (!platformUser) {
-          platformUser = await tx.platformUser.create({
+          platformUser = await tx.platform_users.create({
             data: {
+              id: randomUUID(),
               email: params.ownerEmail,
               password: hashedPassword,
               name: `${params.ownerFirstName} ${params.ownerLastName}`,
               isActive: true,
+              updatedAt: new Date(),
             },
           })
         }
 
         // 4. Create firm user and assign owner role
         console.log('👤 Creating owner user...')
-        const user = await tx.user.create({
+        const user = await tx.users.create({
           data: {
-            lawFirmId: lawFirm.id,
-            platformUserId: platformUser.id,
+            id: randomUUID(),
+            law_firm_id: lawFirm.id,
+            platform_user_id: platformUser.id,
             isActive: true,
             joinedAt: new Date(),
+            updatedAt: new Date(),
           },
         })
 
         // 5. Assign owner role to user
         const ownerRole = roles.find(r => r.name === 'Owner')
         if (ownerRole) {
-          await tx.userRole.create({
+          await tx.user_roles.create({
             data: {
-              lawFirmId: lawFirm.id,
-              userId: user.id,
-              roleId: ownerRole.id,
-              assignedBy: user.id, // Self-assigned during setup
+              id: randomUUID(),
+              law_firm_id: lawFirm.id,
+              user_id: user.id,
+              role_id: ownerRole.id,
+              assigned_by: user.id, // Self-assigned during setup
             },
           })
         }
@@ -246,13 +254,15 @@ async function createDefaultRoles(
 
   const createdRoles = []
   for (const roleData of defaultRoles) {
-    const role = await tx.role.create({
+    const role = await tx.roles.create({
       data: {
-        lawFirmId,
+        id: randomUUID(),
+        law_firm_id: lawFirmId,
         name: roleData.name,
         description: roleData.description,
         permissions: roleData.permissions,
         isSystem: roleData.isSystem,
+        updatedAt: new Date(),
       },
     })
     createdRoles.push(role)

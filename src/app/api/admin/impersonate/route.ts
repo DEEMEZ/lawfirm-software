@@ -8,60 +8,62 @@ import { ROLES } from '@/lib/rbac'
 import { generateToken } from '@/lib/auth'
 
 // POST /api/admin/impersonate - Start impersonation session
-export const POST = withRole(ROLES.SUPER_ADMIN, async (request: NextRequest, userContext) => {
-  try {
-    const body = await request.json()
-    const { lawFirmId, userId, reason, ticketNumber } = body
+export const POST = withRole(
+  ROLES.SUPER_ADMIN,
+  async (request: NextRequest, userContext) => {
+    try {
+      const body = await request.json()
+      const { lawFirmId, userId, reason, ticketNumber } = body
 
-    // Validate required fields
-    if (!lawFirmId || !userId || !reason) {
-      return NextResponse.json(
-        { error: 'Missing required fields: lawFirmId, userId, reason' },
-        { status: 400 }
-      )
-    }
-
-    // Verify the target user exists and is active
-    const targetUser = await prisma.user.findFirst({
-      where: {
-        id: userId,
-        lawFirmId: lawFirmId,
-        isActive: true
-      },
-      include: {
-        lawFirm: {
-          select: {
-            name: true,
-            isActive: true
-          }
-        },
-        platformUser: {
-          select: {
-            email: true,
-            name: true
-          }
-        },
-        userRoles: {
-          include: {
-            role: {
-              select: {
-                name: true
-              }
-            }
-          }
-        }
+      // Validate required fields
+      if (!lawFirmId || !userId || !reason) {
+        return NextResponse.json(
+          { error: 'Missing required fields: lawFirmId, userId, reason' },
+          { status: 400 }
+        )
       }
-    })
 
-    if (!targetUser || !targetUser.lawFirm.isActive) {
-      return NextResponse.json(
-        { error: 'Target user or law firm not found or inactive' },
-        { status: 404 }
-      )
-    }
+      // Verify the target user exists and is active
+      const targetUser = await prisma.users.findFirst({
+        where: {
+          id: userId,
+          law_firm_id: lawFirmId,
+          isActive: true,
+        },
+        include: {
+          law_firms: {
+            select: {
+              name: true,
+              isActive: true,
+            },
+          },
+          platform_users: {
+            select: {
+              email: true,
+              name: true,
+            },
+          },
+          user_roles: {
+            include: {
+              roles: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+      })
 
-    // Create audit log entry for impersonation start
-    await prisma.$executeRaw`
+      if (!targetUser || !targetUser.law_firms.isActive) {
+        return NextResponse.json(
+          { error: 'Target user or law firm not found or inactive' },
+          { status: 404 }
+        )
+      }
+
+      // Create audit log entry for impersonation start
+      await prisma.$executeRaw`
       INSERT INTO platform_audit_logs (
         platform_user_id,
         law_firm_id,
@@ -83,67 +85,69 @@ export const POST = withRole(ROLES.SUPER_ADMIN, async (request: NextRequest, use
           reason,
           ticketNumber,
           targetUser: {
-            email: targetUser.platformUser.email,
-            name: targetUser.platformUser.name
-          }
+            email: targetUser.platform_users.email,
+            name: targetUser.platform_users.name,
+          },
         })}::jsonb,
         ${request.headers.get('x-forwarded-for') || 'unknown'}::inet,
         ${request.headers.get('user-agent') || 'unknown'}
       )
     `
 
-    // Get the primary role for the target user
-    const primaryRole = targetUser.userRoles[0]?.role?.name || 'client'
+      // Get the primary role for the target user
+      const primaryRole = targetUser.user_roles[0]?.roles?.name || 'client'
 
-    // Generate impersonation token
-    const impersonationToken = generateToken({
-      userId: targetUser.id,
-      platformUserId: targetUser.platformUserId,
-      lawFirmId: targetUser.lawFirmId,
-      role: primaryRole.toLowerCase(),
-      isImpersonating: true,
-      originalAdminId: userContext.id,
-      impersonationReason: reason
-    })
+      // Generate impersonation token
+      const impersonationToken = generateToken({
+        userId: targetUser.id,
+        platformUserId: targetUser.platform_user_id,
+        lawFirmId: targetUser.law_firm_id,
+        role: primaryRole.toLowerCase(),
+        isImpersonating: true,
+        originalAdminId: userContext.id,
+        impersonationReason: reason,
+      })
 
-    return NextResponse.json({
-      message: 'Impersonation session started',
-      impersonationToken,
-      targetUser: {
-        id: targetUser.id,
-        email: targetUser.platformUser.email,
-        name: targetUser.platformUser.name,
-        role: primaryRole
-      },
-      lawFirm: {
-        id: targetUser.lawFirmId,
-        name: targetUser.lawFirm.name
-      },
-      impersonationDetails: {
-        reason,
-        ticketNumber,
-        startedAt: new Date().toISOString(),
-        adminId: userContext.id
-      }
-    })
-
-  } catch (error) {
-    console.error('Error starting impersonation:', error)
-    return NextResponse.json(
-      { error: 'Failed to start impersonation session' },
-      { status: 500 }
-    )
+      return NextResponse.json({
+        message: 'Impersonation session started',
+        impersonationToken,
+        targetUser: {
+          id: targetUser.id,
+          email: targetUser.platform_users.email,
+          name: targetUser.platform_users.name,
+          role: primaryRole,
+        },
+        lawFirm: {
+          id: targetUser.law_firm_id,
+          name: targetUser.law_firms.name,
+        },
+        impersonationDetails: {
+          reason,
+          ticketNumber,
+          startedAt: new Date().toISOString(),
+          adminId: userContext.id,
+        },
+      })
+    } catch (error) {
+      console.error('Error starting impersonation:', error)
+      return NextResponse.json(
+        { error: 'Failed to start impersonation session' },
+        { status: 500 }
+      )
+    }
   }
-})
+)
 
 // DELETE /api/admin/impersonate - End impersonation session
-export const DELETE = withRole(ROLES.SUPER_ADMIN, async (request: NextRequest, userContext) => {
-  try {
-    const body = await request.json()
-    const { lawFirmId, userId, sessionDuration } = body
+export const DELETE = withRole(
+  ROLES.SUPER_ADMIN,
+  async (request: NextRequest, userContext) => {
+    try {
+      const body = await request.json()
+      const { lawFirmId, userId, sessionDuration } = body
 
-    // Create audit log entry for impersonation end
-    await prisma.$executeRaw`
+      // Create audit log entry for impersonation end
+      await prisma.$executeRaw`
       INSERT INTO platform_audit_logs (
         platform_user_id,
         law_firm_id,
@@ -163,23 +167,23 @@ export const DELETE = withRole(ROLES.SUPER_ADMIN, async (request: NextRequest, u
         NULL,
         ${JSON.stringify({
           sessionDuration,
-          endedAt: new Date().toISOString()
+          endedAt: new Date().toISOString(),
         })}::jsonb,
         ${request.headers.get('x-forwarded-for') || 'unknown'}::inet,
         ${request.headers.get('user-agent') || 'unknown'}
       )
     `
 
-    return NextResponse.json({
-      message: 'Impersonation session ended',
-      endedAt: new Date().toISOString()
-    })
-
-  } catch (error) {
-    console.error('Error ending impersonation:', error)
-    return NextResponse.json(
-      { error: 'Failed to end impersonation session' },
-      { status: 500 }
-    )
+      return NextResponse.json({
+        message: 'Impersonation session ended',
+        endedAt: new Date().toISOString(),
+      })
+    } catch (error) {
+      console.error('Error ending impersonation:', error)
+      return NextResponse.json(
+        { error: 'Failed to end impersonation session' },
+        { status: 500 }
+      )
+    }
   }
-})
+)

@@ -22,24 +22,24 @@ export const GET = withAuth(async (request: NextRequest, userContext) => {
 
     // Build where clause
     const where: {
-      lawFirmId: string
-      caseId?: string
-      clientId?: string
+      law_firm_id: string
+      case_id?: string
+      client_id?: string
     } = {
-      lawFirmId: userContext.lawFirmId,
+      law_firm_id: userContext.lawFirmId,
     }
 
     if (caseId) {
-      where.caseId = caseId
+      where.case_id = caseId
     }
 
     if (clientId) {
-      where.clientId = clientId
+      where.client_id = clientId
     }
 
     // Query documents with pagination
     const [documents, total] = await Promise.all([
-      prisma.document.findMany({
+      prisma.documents.findMany({
         where,
         orderBy: {
           createdAt: 'desc',
@@ -50,28 +50,28 @@ export const GET = withAuth(async (request: NextRequest, userContext) => {
           id: true,
           name: true,
           description: true,
-          filePath: true,
-          fileSize: true,
-          mimeType: true,
-          uploadedBy: true,
+          file_path: true,
+          file_size: true,
+          mime_type: true,
+          uploaded_by: true,
           createdAt: true,
           updatedAt: true,
-          caseId: true,
-          clientId: true,
-          case: {
+          case_id: true,
+          client_id: true,
+          cases: {
             select: {
               title: true,
             },
           },
-          client: {
+          clients: {
             select: {
-              firstName: true,
-              lastName: true,
+              first_name: true,
+              last_name: true,
             },
           },
         },
       }),
-      prisma.document.count({ where }),
+      prisma.documents.count({ where }),
     ])
 
     // Format response
@@ -79,17 +79,17 @@ export const GET = withAuth(async (request: NextRequest, userContext) => {
       id: doc.id,
       fileName: doc.name,
       description: doc.description,
-      key: doc.filePath, // R2 key
-      fileSize: Number(doc.fileSize), // Convert BigInt to number
-      mimeType: doc.mimeType,
-      uploadedBy: doc.uploadedBy,
+      key: doc.file_path, // R2 key
+      fileSize: Number(doc.file_size), // Convert BigInt to number
+      mimeType: doc.mime_type,
+      uploadedBy: doc.uploaded_by,
       uploadedAt: doc.createdAt.toISOString(),
       updatedAt: doc.updatedAt.toISOString(),
-      caseId: doc.caseId,
-      clientId: doc.clientId,
-      caseTitle: doc.case?.title,
-      clientName: doc.client
-        ? `${doc.client.firstName} ${doc.client.lastName}`
+      caseId: doc.case_id,
+      clientId: doc.client_id,
+      caseTitle: doc.cases?.title,
+      clientName: doc.clients
+        ? `${doc.clients.first_name} ${doc.clients.last_name}`
         : null,
     }))
 
@@ -129,16 +129,16 @@ export const DELETE = withAuth(async (request: NextRequest, userContext) => {
     }
 
     // Find document to verify access and get file path
-    const document = await prisma.document.findFirst({
+    const document = await prisma.documents.findFirst({
       where: {
         id: documentId,
-        lawFirmId: userContext.lawFirmId,
+        law_firm_id: userContext.lawFirmId,
       },
       select: {
         id: true,
         name: true,
-        filePath: true,
-        lawFirmId: true,
+        file_path: true,
+        law_firm_id: true,
       },
     })
 
@@ -164,13 +164,13 @@ export const DELETE = withAuth(async (request: NextRequest, userContext) => {
 
     const deleteCommand = new DeleteObjectCommand({
       Bucket: process.env.R2_BUCKET_NAME,
-      Key: document.filePath,
+      Key: document.file_path,
     })
 
     await s3Client.send(deleteCommand)
 
     // Delete from database
-    await prisma.document.delete({
+    await prisma.documents.delete({
       where: {
         id: documentId,
       },

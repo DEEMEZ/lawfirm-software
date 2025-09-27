@@ -27,16 +27,16 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       const key = decodeURIComponent(rawKey)
 
       // Find document in database to verify access
-      const document = await prisma.document.findFirst({
+      const document = await prisma.documents.findFirst({
         where: {
-          filePath: key, // filePath stores the R2 key
-          lawFirmId: userContext.lawFirmId,
+          file_path: key, // file_path stores the R2 key
+          law_firm_id: userContext.lawFirmId,
         },
         select: {
           id: true,
           name: true,
-          filePath: true,
-          lawFirmId: true,
+          file_path: true,
+          law_firm_id: true,
         },
       })
 
@@ -64,7 +64,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
       const command = new GetObjectCommand({
         Bucket: process.env.R2_BUCKET_NAME,
-        Key: document.filePath,
+        Key: document.file_path,
         ResponseContentDisposition:
           download && fileName
             ? `attachment; filename="${fileName || document.name}"`
@@ -83,7 +83,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         },
         metadata: {
           fileName: document.name,
-          key: document.filePath,
+          key: document.file_path,
         },
       })
     } catch (error) {
